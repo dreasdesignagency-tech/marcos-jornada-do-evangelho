@@ -6,5 +6,8 @@ export default defineConfig({
   base: './',
   plugins: [react(), tailwindcss()],
   server: { port: 5173, host: true },
-  build: { chunkSizeWarningLimit: 2000 },
+  build: {
+    chunkSizeWarningLimit: 2000,
+    rollupOptions: { input: { main: 'index.html', cenario: 'cenario.html' } },
+  },
 });

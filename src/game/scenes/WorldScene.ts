@@ -10,6 +10,9 @@ import { commit, giveItem, hasItem, unlockAchievement } from '../../core/progres
 import { music, sfx } from '../../audio/audio';
 import { Actor } from '../systems/Actor';
 import { GALILEIA_GRID } from '../maps/galileia';
+import { GalileiaAnim, FIRE as ANIM_FIRE } from '../gfx/galileiaAnim';
+
+let galAnim: GalileiaAnim | null = null;
 import { buildMap, clearAround, type BuiltMap } from '../maps/builder';
 import {
   buildTileset, drawObject, drawPickup, drawScroll, tileIndex, waterIndex, TILE_ORDER, VARIANTS, SOLID_TILES, PAL, T,
@@ -58,6 +61,9 @@ export class WorldScene extends Phaser.Scene {
   lightAlpha = 0;
   lightColor = 0x0a1030;
   glows: { x: number; y: number; r: number; on?: () => boolean }[] = [];
+  anim?: GalileiaAnim;
+  animTex?: Phaser.Textures.CanvasTexture;
+  animAcc = 0;
   rain?: Phaser.GameObjects.Particles.ParticleEmitter;
   overlay!: Phaser.GameObjects.Rectangle;
   ch: ChallengeRT | null = null;
@@ -86,6 +92,8 @@ export class WorldScene extends Phaser.Scene {
     this.startedStep = '';
     this.busy = false;
     this.glows = [];
+    this.anim = undefined;
+    this.animTex = undefined;
     this.waterTiles = [];
     this.scrollSprites = new Map();
     this.forcedVisible = new Map();
@@ -292,7 +300,14 @@ export class WorldScene extends Phaser.Scene {
   // ---------------- MAPAS ----------------
   buildRef() {
     this.cellW = 32 * MS;
-    const bg = this.add.image(0, 0, 'galileia').setOrigin(0).setScale(MS).setDepth(-10000);
+    // fundo animado (água, cachoeira, fogueira, toldos, barcos, árvores, pássaros)
+    if (!galAnim) galAnim = new GalileiaAnim(this.textures.get('galileia').getSourceImage() as HTMLImageElement);
+    this.anim = galAnim;
+    const akey = 'galileia_anim';
+    this.animTex = (this.textures.exists(akey) ? this.textures.get(akey) : this.textures.addCanvas(akey, galAnim.canvas)) as Phaser.Textures.CanvasTexture;
+    galAnim.render();
+    this.animTex.refresh();
+    const bg = this.add.image(0, 0, akey).setOrigin(0).setScale(MS).setDepth(-10000);
     this.worldW = bg.width * MS;
     this.worldH = bg.height * MS;
     // colisões: une sequências horizontais de células bloqueadas
@@ -308,25 +323,7 @@ export class WorldScene extends Phaser.Scene {
         } else x++;
       }
     });
-    // elementos animados independentes sobre o cenário
-    const c = this.cellW;
-    const fire = this.placeObj('fire', 14.55 * c, 9.25 * c, { solid: false });
-    fire.setScale(MS * 1.1).setAlpha(0.95);
-    // cachoeira
-    this.add.particles(3.6 * c, 3.6 * c, 'dot', {
-      x: { min: -30, max: 30 }, speedY: { min: -20, max: 10 }, speedX: { min: -25, max: 25 },
-      lifespan: 700, scale: { start: 1.6, end: 0 }, alpha: { start: 0.9, end: 0 }, frequency: 40, tint: 0xe8fbff,
-    }).setDepth(-3000);
-    this.add.particles(3.3 * c, 1.2 * c, 'raindrop', {
-      x: { min: 0, max: 40 }, speedY: { min: 120, max: 180 }, lifespan: 600, alpha: { start: 0.7, end: 0 }, frequency: 30, tint: 0xdff8ff, scale: 1.5,
-    }).setDepth(-3000);
-    // brilhos na água
-    const water: { x: number; y: number }[] = [];
-    GALILEIA_GRID.forEach((row, y) => [...row].forEach((ch, x) => ch === '~' && water.push({ x, y })));
-    this.add.particles(0, 0, 'dot', {
-      emitZone: { type: 'random', source: { getRandomPoint: (p: Phaser.Math.Vector2) => { const w = water[Math.floor(Math.random() * water.length)]; p.x = (w.x + Math.random()) * c; p.y = (w.y + Math.random()) * c; return p; } } as any },
-      lifespan: 900, scale: { start: 1.4, end: 0 }, alpha: { start: 0.9, end: 0 }, frequency: 60, tint: 0xffffff,
-    }).setDepth(-3000);
+    this.glows.push({ x: ANIM_FIRE.x * MS, y: (ANIM_FIRE.y - 10) * MS, r: 150 });
   }
 
   buildProc() {
@@ -1490,6 +1487,15 @@ export class WorldScene extends Phaser.Scene {
 
   update(time: number, delta: number) {
     const dt = delta / 1000;
+    if (this.anim && this.animTex) {
+      this.animAcc += dt;
+      if (this.animAcc >= 1 / 12) {
+        this.animAcc %= 1 / 12;
+        this.anim.step(1 / 12);
+        this.anim.render();
+        this.animTex.refresh();
+      }
+    }
     const s = store.save;
     if (!s) return;
     // movimento
