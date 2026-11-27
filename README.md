@@ -1,5 +1,7 @@
 # Marcos — A Jornada do Evangelho
 
+**Jogar agora:** https://dreasdesignagency-tech.github.io/marcos-jornada-do-evangelho/
+
 RPG 2D em pixel art (Phaser 3 + TypeScript + React + Vite + Tailwind) pelos 16 capítulos do Evangelho de Marcos.
 
 ## Rodar
@@ -33,3 +35,8 @@ Baseados na tradução de João Ferreira de Almeida (edição de domínio públi
 
 ## Ranking
 Sem servidor configurado, o ranking é local (por dispositivo). Supabase pode ser adicionado depois para ranking online.
+
+## Publicar atualização
+```bash
+npm run build && cd dist && touch .nojekyll && git init -q -b gh-pages && git add -A && git commit -qm "Atualização" && git push -f https://github.com/dreasdesignagency-tech/marcos-jornada-do-evangelho.git gh-pages; rm -rf .git
+```
