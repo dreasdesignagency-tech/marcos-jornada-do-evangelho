@@ -1,5 +1,5 @@
 import { store, useStore } from '../../core/store';
-import { CHAPTERS } from '../../data/chapters';
+import { getChapter } from '../../data/chapters';
 import { breakdown, percent, requirements, resetChapterRun } from '../../core/progression';
 import { restartChapter } from '../../game/PhaserGame';
 import { Panel, Bar } from '../common';
@@ -7,13 +7,14 @@ import { ItemsList } from '../screens/Diary';
 import { MiniMap } from '../hud/Hud';
 import { SettingsContent } from '../screens/Misc';
 import { DiaryContent } from '../screens/Diary';
+import LegendContent, { SpecialMissions } from './Legend';
 
 export default function Panels() {
   const s = useStore();
   const u = s.ui;
   if (!u.panel) return null;
   const close = () => store.setUi({ panel: null });
-  const def = CHAPTERS[u.chapter - 1];
+  const def = getChapter(u.chapter);
   const p = s.progress(u.chapter);
 
   if (u.panel === 'inventory') {
@@ -32,6 +33,37 @@ export default function Panels() {
           <div className="sm:hidden"><MiniMap size={300} big /></div>
           <p className="text-sm">🔵 Você · ⭐ Objetivo · 🟠 Personagem da missão · 🟡 Pergaminho · ⚪ Personagens</p>
         </div>
+      </Panel>
+    );
+  }
+  if (u.panel === 'legend') {
+    return (
+      <Panel title="Missão lendária" onClose={close}>
+        <LegendContent />
+      </Panel>
+    );
+  }
+  if (u.panel === 'journal' && def.story) {
+    return (
+      <Panel title="Diário de Missões" onClose={close} wide>
+        <p className="ref">{def.story.label} · {def.setting}</p>
+        <h3 className="title mb-2 text-xl font-bold">{def.title}</h3>
+        <Bar value={percent(def, p) / 100} />
+        <h4 className="title mt-3 font-bold">Missão principal</h4>
+        <ul className="text-sm">
+          {def.steps.map((st) => (
+            <li key={st.id} className={p.steps.includes(st.id) ? 'opacity-60' : ''}>{p.steps.includes(st.id) ? '✔' : '○'} {st.title}</li>
+          ))}
+        </ul>
+        {def.side.length > 0 && (
+          <>
+            <h4 className="title mt-3 font-bold">Missões secundárias</h4>
+            <ul className="text-sm">{def.side.map((q) => <li key={q.id}>{p.side.includes(q.id) ? '✔' : '○'} {q.title} — <span className="opacity-75">{q.hint}</span></li>)}</ul>
+          </>
+        )}
+        <SpecialMissions />
+        <h4 className="title mt-3 font-bold">Lugares</h4>
+        <ul className="text-sm">{def.zones.map((z) => <li key={z.id}>{p.zones.includes(z.id) ? '🧭 ' + z.name : '○ ???'}</li>)}</ul>
       </Panel>
     );
   }
@@ -67,6 +99,7 @@ export default function Panels() {
               <li>{req.message ? '✔' : '○'} Ler a Mensagem do Capítulo</li>
               <li>{req.quiz ? '✔' : '○'} Concluir o desafio de conhecimento</li>
             </ul>
+            <SpecialMissions />
           </div>
           <div>
             <h4 className="title font-bold">Pontos de Jornada</h4>

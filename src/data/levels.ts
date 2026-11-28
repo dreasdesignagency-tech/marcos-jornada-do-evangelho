@@ -1,6 +1,6 @@
 // Títulos de progressão. São conquistas do jogo, não classificações espirituais.
 export const LEVELS = [
-  { level: 1, title: 'Viajante', chapters: 0 },
+  { level: 1, title: 'Sobrevivente', chapters: 0 },
   { level: 2, title: 'Explorador', chapters: 2 },
   { level: 3, title: 'Aprendiz', chapters: 4 },
   { level: 4, title: 'Peregrino', chapters: 6 },

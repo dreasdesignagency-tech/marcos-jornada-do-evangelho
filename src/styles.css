@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@custom-variant short (@media (max-height: 520px));
 
 @theme {
   --font-title: "Cinzel", serif;
@@ -10,9 +11,24 @@
   --color-gold: #d9a441;
   --color-wood: #5a3a22;
   --color-night: #1a120c;
+  /* O jogo é 100% retrato: os breakpoints de tela larga nunca são usados */
+  --breakpoint-sm: 999rem;
+  --breakpoint-md: 999rem;
+  --breakpoint-lg: 999rem;
+  --breakpoint-xl: 999rem;
 }
 
-html, body, #root { height: 100%; margin: 0; background: #1a120c; overflow: hidden; }
+html, body { height: 100%; margin: 0; background: #07050a; overflow: hidden; }
+/* Moldura de celular em pé: no telefone ocupa a tela toda; no computador vira uma coluna em retrato. */
+#root {
+  position: relative; height: 100%; height: 100dvh; width: min(100vw, calc(100dvh * 0.5));
+  margin: 0 auto; overflow: hidden; background: #1a120c; box-shadow: 0 0 60px #000;
+  padding-top: env(safe-area-inset-top);
+}
+.rotate-msg { display: none; }
+@media (orientation: landscape) and (max-height: 560px) and (pointer: coarse) {
+  .rotate-msg { display: flex; }
+}
 body { font-family: var(--font-body); color: var(--color-ink); -webkit-tap-highlight-color: transparent; user-select: none; }
 
 /* Pergaminho medieval */
@@ -56,3 +72,43 @@ body { font-family: var(--font-body); color: var(--color-ink); -webkit-tap-highl
 .floaty { animation: floaty 3s ease-in-out infinite; }
 @keyframes drift { from { transform: translateY(0); opacity: 0; } 20% { opacity: .9; } to { transform: translateY(-110vh) translateX(40px); opacity: 0; } }
 .mote { position: absolute; width: 3px; height: 3px; border-radius: 50%; background: #ffe7a0; animation: drift linear infinite; box-shadow: 0 0 6px #ffd36a; }
+
+/* ---------- Mundo real (O Último Chamado): interface tecnológica e escura ---------- */
+.theme-tech .parch {
+  background:
+    linear-gradient(180deg, rgba(43,242,255,.06), transparent 40%),
+    repeating-linear-gradient(0deg, rgba(255,255,255,.025) 0 1px, transparent 1px 3px),
+    linear-gradient(180deg, #151320, #0c0a12);
+  border: 2px solid #2bf2ff66;
+  box-shadow: 0 0 0 2px #05040a, 0 0 18px rgba(43,242,255,.18), inset 0 0 22px rgba(255,43,214,.08);
+  color: #d8f3ff;
+  border-radius: 4px;
+}
+.theme-tech .parch :not(.btn):not(.btn *):not(.keep-color) { color: inherit; }
+.theme-tech .parch .title { color: #7af6ff; }
+.theme-tech .wood {
+  background: linear-gradient(180deg, #1a1726, #0e0c16);
+  border: 2px solid #ff2bd666;
+  box-shadow: 0 0 12px rgba(255,43,214,.18), inset 0 1px 0 rgba(255,255,255,.06);
+  color: #e8dcff;
+  border-radius: 4px;
+}
+.theme-tech .btn {
+  background: linear-gradient(180deg, #2a2438, #17131f);
+  color: #e8dcff; border-color: #05040a;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 3px 0 #05040a, 0 0 10px rgba(43,242,255,.15);
+  border-radius: 4px;
+}
+.theme-tech .btn-gold { background: linear-gradient(180deg, #2bd8e8, #1478a0); color: #05040a; }
+.theme-tech .ref { color: #ff6af0; }
+.sys-line { font-family: var(--font-pixel); font-size: 11px; line-height: 1.8; letter-spacing: .04em; }
+@keyframes glitch {
+  0%, 100% { transform: none; clip-path: none; }
+  20% { transform: translate(-2px, 1px); clip-path: inset(10% 0 60% 0); }
+  40% { transform: translate(2px, -1px); clip-path: inset(50% 0 20% 0); }
+  60% { transform: translate(-1px, 0); }
+}
+.glitch { animation: glitch .35s steps(2) infinite; }
+@keyframes scan { from { transform: translateY(-100%); } to { transform: translateY(100%); } }
+@keyframes blinkc { 50% { opacity: 0; } }
+.caret::after { content: '▌'; animation: blinkc 1s steps(1) infinite; margin-left: 2px; }

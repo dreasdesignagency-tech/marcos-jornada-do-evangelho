@@ -3,6 +3,18 @@
 export interface ItemDef { name: string; icon: string; desc: string }
 
 export const ITEMS: Record<string, ItemDef> = {
+  // ---- O Último Chamado (mundo real e missão lendária) ----
+  pingente: { name: 'Pingente de Abigail', icon: '📿', desc: 'Lendário. Presente da irmã antes de partir. Reage a memórias escondidas para Elias.' },
+  foto_abigail: { name: 'Fotografia de Abigail', icon: '🖼️', desc: 'Abigail aos 17 anos, sorrindo no quintal da antiga casa.' },
+  mochila: { name: 'Mochila de sobrevivência', icon: '🎒', desc: 'Remendada muitas vezes. Cabe tudo o que importa.' },
+  racao: { name: 'Ração da comunidade', icon: '🥫', desc: 'Lata sem rótulo. Comida rara no Distrito Externo.' },
+  agua_filtrada: { name: 'Água filtrada', icon: '💧', desc: 'Filtrada três vezes por causa da chuva ácida.' },
+  bateria: { name: 'Bateria recuperada', icon: '🔋', desc: 'Ainda guarda alguma carga.' },
+  componente: { name: 'Componentes eletrônicos', icon: '🔧', desc: 'Placas e fios tirados de um drone abatido.' },
+  credencial: { name: 'Credencial A-17', icon: '🪪', desc: 'Passe clandestino de acesso à Arena.' },
+  carta_sara: { name: 'Carta da mãe', icon: '✉️', desc: '"Volte para casa, filho. Sempre."' },
+  pingente_digital: { name: 'Pingente digital', icon: '💠', desc: 'Representação do pingente dentro do REFÚGIO. Abigail o deixou para você.' },
+  fragmento_1: { name: 'Fragmento de memória · Marcos 1', icon: '◆', desc: 'Autora: Abigail. Destinatário: Elias. Acesso autorizado.' },
   agua_fonte: { name: 'Água da fonte', icon: '💧', desc: 'Água fresca de Cesareia de Filipe.' },
   amendoas: { name: 'Amêndoas de Betânia', icon: '🌰', desc: 'Um agradecimento de Simão, o leproso.' },
   anel: { name: 'Anel de ouro', icon: '💍', desc: 'Do homem rico que foi embora triste.' },

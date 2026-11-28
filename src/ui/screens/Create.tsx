@@ -60,7 +60,7 @@ function Swatches({ label, colors, value, onPick }: { label: string; colors: str
 }
 
 export default function Create() {
-  const [name, setName] = useState('João Marcos');
+  const [name, setName] = useState('Elias');
   const [look, setLook] = useState<Look>({ ...DEFAULT_LOOK });
   const set = (k: keyof Look, v: any) => setLook((l) => ({ ...l, [k]: v }));
   const random = () => {
@@ -69,26 +69,26 @@ export default function Create() {
     sfx('select');
   };
   const start = () => {
-    const nm = name.trim().slice(0, 20) || 'João Marcos';
+    const nm = name.trim().slice(0, 20) || 'Elias';
     store.startNew(nm, look);
     sfx('quest');
-    goChapter(1);
+    goChapter(101);
   };
   return (
     <div className="relative flex h-full w-full items-center justify-center overflow-y-auto bg-[radial-gradient(ellipse_at_center,#3a2616,#120b06)] p-3">
       <Motes n={14} />
       <div className="parch relative z-10 my-auto grid w-full max-w-3xl gap-5 p-5 sm:grid-cols-[auto_1fr] fade-in">
         <div className="flex flex-col items-center gap-2">
-          <h2 className="title text-center text-2xl font-bold text-[#5a2a10]">Seu peregrino</h2>
+          <h2 className="title text-center text-2xl font-bold text-[#5a2a10]">Seu protagonista</h2>
           <div className="rounded-lg border-2 border-[#7a5230] bg-[#c9b07a]/50 p-3">
             <SpritePreview look={look} />
           </div>
           <button className="btn text-sm" onClick={random}>🎲 Aleatório</button>
-          <p className="max-w-[15rem] text-center text-xs opacity-80">Baseado na skin de João Marcos: túnica, manto, sandálias, bolsa de couro e pergaminho.</p>
+          <p className="max-w-[15rem] text-center text-xs opacity-80">Elias, 21 anos: jaqueta de sobrevivência, cachecol vermelho, mochila e o pingente da irmã. Nome e aparência podem ser alterados.</p>
         </div>
         <div className="flex flex-col gap-3">
           <label className="block">
-            <span className="title text-sm font-bold">Nome do jogador</span>
+            <span className="title text-sm font-bold">Nome do protagonista</span>
             <input
               value={name}
               maxLength={20}
@@ -98,15 +98,15 @@ export default function Create() {
           </label>
           <Swatches label="Tom de pele" colors={SKIN} value={look.skin} onPick={(c) => set('skin', c)} />
           <Swatches label="Cabelo" colors={HAIR} value={look.hair} onPick={(c) => set('hair', c)} />
-          <Swatches label="Túnica" colors={TUNIC} value={look.tunic} onPick={(c) => set('tunic', c)} />
-          <Swatches label="Manto" colors={MANTLE} value={look.mantle} onPick={(c) => set('mantle', c)} />
+          <Swatches label="Jaqueta / túnica" colors={TUNIC} value={look.tunic} onPick={(c) => set('tunic', c)} />
+          <Swatches label="Cachecol / manto" colors={MANTLE} value={look.mantle} onPick={(c) => set('mantle', c)} />
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={!!look.beard} onChange={(e) => set('beard', e.target.checked)} className="h-4 w-4 accent-[#7a5230]" />
             Barba
           </label>
           <div className="mt-2 flex flex-wrap justify-end gap-2">
             <button className="btn" onClick={() => store.setUi({ screen: 'title' })}>Voltar</button>
-            <button className="btn btn-gold" onClick={start}>Iniciar a jornada ➜</button>
+            <button className="btn btn-gold" onClick={start}>Começar o prólogo ➜</button>
           </div>
         </div>
       </div>

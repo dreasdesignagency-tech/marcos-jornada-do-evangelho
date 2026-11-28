@@ -1,7 +1,7 @@
 import { useEffect, type ReactNode } from 'react';
 import type { Look } from '../data/types';
 import { portraitCached } from '../game/gfx/recolor';
-import { CHAPTERS } from '../data/chapters';
+import { getChapter } from '../data/chapters';
 import { LOOKS, resolveLook } from '../data/looks';
 import { store } from '../core/store';
 import { sfx } from '../audio/audio';
@@ -22,10 +22,16 @@ export function Portrait({ look, size = 64, id = 'p', className = '' }: { look: 
 /** Quem está falando: nome e aparência. */
 export function speaker(who: string | undefined, chapter: number): { name: string; look: Look | null } {
   if (!who || who === 'narrador') return { name: 'Narrador', look: null };
-  if (who === 'marcos') return { name: store.save?.player.name ?? 'João Marcos', look: store.save?.player.look ?? null };
-  const def = CHAPTERS[chapter - 1];
+  if (who === 'marcos') return { name: store.save?.player.name ?? 'Elias', look: store.save?.player.look ?? null };
+  if (who === 'sistema') return { name: 'REFÚGIO · Sistema', look: null };
+  if (who === 'eden') return { name: 'ÉDEN', look: null };
+  if (who === 'porteiro') return { name: 'Porteiro', look: LOOKS.agente };
+  const def = getChapter(chapter);
   const n = def?.npcs.find((x) => x.id === who);
   if (n) return { name: n.name, look: resolveLook(n.look) };
+  // personagens recorrentes da história em outros cenários
+  const cast: Record<string, [string, string]> = { abigail: ['Abigail', 'abigail'], noe: ['Noé', 'noe'], sara: ['Sara', 'sara'], samuel: ['Samuel', 'samuel'] };
+  if (cast[who]) return { name: cast[who][0], look: LOOKS[cast[who][1]] };
   if (who === 'jesus') return { name: 'Jesus', look: LOOKS.jesus };
   return { name: who, look: LOOKS[who] ?? null };
 }

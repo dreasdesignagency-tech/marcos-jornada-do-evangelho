@@ -3,18 +3,36 @@ import type { Look } from './types';
 // Paletas para a personalização do jogador
 export const SKIN = ['#f1c08a', '#e0a46e', '#c3834f', '#9a6238', '#6e4326'];
 export const HAIR = ['#6b3a1e', '#3a2418', '#1e1512', '#8a5a2b', '#b07a3a', '#5a5a5a'];
-export const TUNIC = ['#d9c3a0', '#e8e0cc', '#b89a72', '#a7b08a', '#c9a77c', '#9c8a7a'];
-export const MANTLE = ['#4a5f86', '#7a2f2f', '#4f6b3a', '#7d5a2c', '#5d3f6e', '#2f5f63', '#8c6d2f'];
+export const TUNIC = ['#5a4a36', '#3a4a3a', '#2a3442', '#d9c3a0', '#e8e0cc', '#b89a72', '#a7b08a', '#c9a77c', '#9c8a7a'];
+export const MANTLE = ['#a8262a', '#4a5f86', '#7a2f2f', '#4f6b3a', '#7d5a2c', '#5d3f6e', '#2f5f63', '#8c6d2f'];
 
+/** Elias: jaqueta de sobrevivência gasta e cachecol vermelho. */
 export const DEFAULT_LOOK: Look = {
-  skin: SKIN[0],
-  hair: HAIR[0],
+  skin: '#e0a46e',
+  hair: '#3a2418',
   tunic: TUNIC[0],
   mantle: MANTLE[0],
 };
 
 /** Presets dos personagens do Evangelho (recolorações da skin base). */
 export const LOOKS: Record<string, Look> = {
+  // ---- O Último Chamado: família e mundo real ----
+  elias: { skin: '#e0a46e', hair: '#3a2418', tunic: '#5a4a36', mantle: '#a8262a', leather: '#3a2a1a' },
+  eliasCrianca: { skin: '#e0a46e', hair: '#3a2418', tunic: '#7a8aa8', mantle: '#c8a050', scale: 0.8 },
+  abigail: { skin: '#e8b88a', hair: '#5a2e18', tunic: '#e8dcc0', mantle: '#4a6a9a', scale: 1.0 },
+  abigailJovem: { skin: '#e8b88a', hair: '#5a2e18', tunic: '#f2e8d0', mantle: '#4a7aa8', scale: 0.96 },
+  samuel: { skin: '#c98b58', hair: '#6a6a6a', tunic: '#4a4436', mantle: '#3a3a2e', leather: '#2a2018', beard: true, scale: 1.12 },
+  sara: { skin: '#e0a46e', hair: '#7a6a5a', tunic: '#6a5a6a', mantle: '#4a3a4a', veil: '#8a7a8a', scale: 1.02 },
+  noe: { skin: '#b97a47', hair: '#bdbdbd', tunic: '#2a3442', mantle: '#1e2a36', leather: '#5a7a8a', beard: true, scale: 1.1 },
+  agente: { skin: '#3a3440', hair: '#14121a', tunic: '#1c1a24', mantle: '#2a2733', leather: '#ff2a3a', scale: 1.14 },
+  refugiado: { skin: '#c98b58', hair: '#3a2e24', tunic: '#4a3e30', mantle: '#5a4632', veil: '#4a3a2a', scale: 1.04 },
+  refugiada: { skin: '#e0a46e', hair: '#2a1a12', tunic: '#4a4048', mantle: '#3a3040', veil: '#5a4a5a', scale: 1.0 },
+  mecanico: { skin: '#b97a47', hair: '#1e1512', tunic: '#3a4a3a', mantle: '#5a3a1e', leather: '#6a6a6a', beard: true, scale: 1.1 },
+  contrabandista: { skin: '#d39a63', hair: '#14121a', tunic: '#2a1e30', mantle: '#5a1a4a', leather: '#2bf2ff', scale: 1.1 },
+  idosoReal: { skin: '#d39a63', hair: '#dcdcdc', tunic: '#3a3630', mantle: '#2a2622', beard: true, scale: 1.04 },
+  criancaReal: { skin: '#c98b58', hair: '#1e1512', tunic: '#4a4a5a', mantle: '#6a3a2a', scale: 0.82 },
+  operadora: { skin: '#9a6238', hair: '#14121a', tunic: '#1e2a36', mantle: '#2a3a4a', leather: '#2bf2ff', scale: 1.04 },
+  vigia: { skin: '#e0a46e', hair: '#5a3a22', tunic: '#2e2a26', mantle: '#4a3020', veil: '#2a2420', scale: 1.06 },
   jesus: { skin: '#d9a06a', hair: '#3b2416', tunic: '#efe8da', mantle: '#8e2f2b', beard: true, scale: 1.14 },
   joaoBatista: { skin: '#b97a47', hair: '#2a1a12', tunic: '#8a6436', mantle: '#5e4423', leather: '#3d2a18', beard: true, scale: 1.12 },
   pedro: { skin: '#c98b58', hair: '#4a3020', tunic: '#a88f6c', mantle: '#3f5a6a', beard: true, scale: 1.14 },

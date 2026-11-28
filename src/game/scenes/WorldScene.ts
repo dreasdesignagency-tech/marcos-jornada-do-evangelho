@@ -1,18 +1,22 @@
 // Cena principal: mapa, colisões, câmera, NPCs, missões, desafios, cutscenes e iluminação.
 import Phaser from 'phaser';
 import type { ChapterDef, StepDef, NpcDef, SceneAction, Pt, Line, ChallengeDef, FxName, Look } from '../../data/types';
-import { CHAPTERS } from '../../data/chapters';
+import { CHAPTERS, getChapter } from '../../data/chapters';
 import { resolveLook, LOOKS } from '../../data/looks';
 import { ITEMS } from '../../data/items';
 import { store } from '../../core/store';
 import { bus, worldInfo } from '../../core/bus';
-import { commit, giveItem, hasItem, unlockAchievement } from '../../core/progression';
+import { commit, giveItem, hasItem, unlockAchievement, completeChapter } from '../../core/progression';
+import { hasFlag, setFlag, addFragment, CAVE } from '../../core/story';
+import { goChapter } from '../../ui/screens/Title';
+import { OBJ_GLOW, NEON_COLORS, drawDrone } from '../gfx/procgenReal';
 import { music, sfx } from '../../audio/audio';
 import { Actor } from '../systems/Actor';
 import { GALILEIA_GRID } from '../maps/galileia';
 import { GalileiaAnim, FIRE as ANIM_FIRE } from '../gfx/galileiaAnim';
 
 let galAnim: GalileiaAnim | null = null;
+const TOUCH = typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0);
 import { buildMap, clearAround, type BuiltMap } from '../maps/builder';
 import {
   buildTileset, drawObject, drawPickup, drawScroll, tileIndex, waterIndex, TILE_ORDER, VARIANTS, SOLID_TILES, PAL, T,
@@ -62,6 +66,7 @@ export class WorldScene extends Phaser.Scene {
   lightColor = 0x0a1030;
   glows: { x: number; y: number; r: number; on?: () => boolean }[] = [];
   anim?: GalileiaAnim;
+  placed: { cx: number; cy: number; o: string; img: Phaser.GameObjects.GameObject }[] = [];
   animTex?: Phaser.Textures.CanvasTexture;
   animAcc = 0;
   rain?: Phaser.GameObjects.Particles.ParticleEmitter;
@@ -85,7 +90,7 @@ export class WorldScene extends Phaser.Scene {
   }
 
   init(data: { chapter: number }) {
-    this.def = CHAPTERS[data.chapter - 1];
+    this.def = getChapter(data.chapter);
     this.npcs = new Map();
     this.interactables = [];
     this.ch = null;
@@ -94,6 +99,8 @@ export class WorldScene extends Phaser.Scene {
     this.glows = [];
     this.anim = undefined;
     this.animTex = undefined;
+    this.placed = [];
+    this.cavePortal = undefined;
     this.waterTiles = [];
     this.scrollSprites = new Map();
     this.forcedVisible = new Map();
@@ -127,7 +134,8 @@ export class WorldScene extends Phaser.Scene {
     // jogador
     const s = store.save!;
     const sp = this.w(this.def.spawn);
-    this.player = new Actor(this, 'marcos', s.player.name, s.player.look, sp.x, sp.y, true);
+    const look = this.def.story?.child ? { ...s.player.look, scale: 0.8 } : s.player.look;
+    this.player = new Actor(this, 'marcos', s.player.name, look, sp.x, sp.y, true);
     (this.player.sprite.body as Phaser.Physics.Arcade.Body).setCollideWorldBounds(true);
     this.physics.add.collider(this.player.sprite, this.walls);
     if (this.layer) this.physics.add.collider(this.player.sprite, this.layer);
@@ -162,7 +170,10 @@ export class WorldScene extends Phaser.Scene {
     music(this.def.music);
     store.setUi({ location: this.def.setting, counter: null, hotcold: null, interactHint: null });
     this.refreshVisibility();
-    if (this.allMainDone()) this.spawnMessageScroll();
+    this.setupUseSteps();
+    for (const st of this.def.steps) if (st.take && this.prog.steps.includes(st.id)) this.takeObject(st);
+    if (this.allMainDone() && !this.def.story) this.spawnMessageScroll();
+    if (this.def.n === 1 && hasFlag('rastro') && !hasFlag('letter-read')) this.spawnCavePortal();
 
     this.unsub.push(bus.on('interact', () => this.tryInteract()));
     this.unsub.push(bus.on('message-closed', () => this.afterMessage()));
@@ -179,7 +190,8 @@ export class WorldScene extends Phaser.Scene {
     const p = this.prog;
     if (!p.steps.length && !p.zones.length) {
       this.busy = true;
-      store.setUi({ cinematic: { title: `Capítulo ${this.def.n} — ${this.def.title}`, sub: `${this.def.ref} · ${this.def.setting}` } });
+      const st = this.def.story;
+      store.setUi({ cinematic: st ? { title: this.def.title, sub: this.def.ref } : { title: `Capítulo ${this.def.n} — ${this.def.title}`, sub: `${this.def.ref} · ${this.def.setting}` } });
       const off = bus.on('cinematic-closed', async () => {
         off();
         await store.dialog([{ who: 'narrador', text: this.def.intro }]);
@@ -191,7 +203,8 @@ export class WorldScene extends Phaser.Scene {
   fitZoom() {
     const h = this.scale.height;
     const wdt = this.scale.width;
-    const z = Phaser.Math.Clamp(Math.min(h / 380, wdt / 520), 1.1, 3);
+    // retrato: o zoom acompanha a largura do telefone (personagem ~1/7 da largura)
+    const z = Phaser.Math.Clamp(Math.min(h / 560, wdt / 320), 1.1, 3);
     this.cameras.main.setZoom(z);
   }
 
@@ -238,6 +251,12 @@ export class WorldScene extends Phaser.Scene {
       g.destroy();
     }
     add('scroll', drawScroll());
+    if (!this.textures.exists('drone')) {
+      const dc = drawDrone();
+      const tex = this.textures.addCanvas('drone', dc)!;
+      tex.add(0, 0, 0, 0, dc.width / 2, dc.height);
+      tex.add(1, 0, dc.width / 2, 0, dc.width / 2, dc.height);
+    }
     for (const k of ['peixe', 'corda', 'pao', 'cesto', 'ramo', 'manto', 'semente', 'especiaria', 'item']) add('pk_' + k, drawPickup(k));
     // canteiros do semeador
     if (!this.textures.exists('plot_boa')) {
@@ -284,17 +303,64 @@ export class WorldScene extends Phaser.Scene {
       const z = this.add.zone(x, y - zh / 2 - (b.oy ?? 0) * MS, zw, zh);
       this.walls.add(z);
     }
-    if (meta.frames && o === 'fire') {
-      this.anims.exists('fire_anim') ||
-        this.anims.create({ key: 'fire_anim', frames: [0, 1, 2].map((f) => ({ key, frame: f })), frameRate: 8, repeat: -1 });
-      (img as Phaser.GameObjects.Sprite).play('fire_anim');
-      this.glows.push({ x, y: y - 10, r: 150 });
+    if (meta.frames && (o === 'fire' || o === 'barrelfire' || o === 'torch')) {
+      const ak = `${o}_anim`;
+      this.anims.exists(ak) ||
+        this.anims.create({ key: ak, frames: [0, 1, 2].map((f) => ({ key, frame: f })), frameRate: 8, repeat: -1 });
+      (img as Phaser.GameObjects.Sprite).play({ key: ak, startFrame: Math.floor(Math.random() * 3) });
+      if (o === 'fire') this.glows.push({ x, y: y - 10, r: 150 });
     }
+    const cg = OBJ_GLOW[o as keyof typeof OBJ_GLOW];
+    if (cg) {
+      const color = o === 'neon' ? NEON_COLORS[(opts.v ?? 0) % 3] : o === 'tarp' && (opts.v ?? 0) % 3 ? 0x2bf2ff : cg.color;
+      const gy = y - img.displayHeight * (cg.fy ?? (o === 'screen' ? 0.7 : 0.6));
+      this.colorGlow(x, gy, color, cg.r, o === 'neon' || o === 'screen' || o === 'billboard');
+      // chão molhado: o neon se reflete em faixas verticais no piso
+      if (this.def.map.ambience === 'neon' && this.def.story?.rain !== false) {
+        const ref = this.add.image(x, y + cg.r * 0.35, 'light').setBlendMode(Phaser.BlendModes.ADD).setTint(color)
+          .setScale((cg.r * 0.55) / 128, (cg.r * 2.1) / 128).setAlpha(0.26).setDepth(-3900);
+        this.tweens.add({ targets: ref, alpha: 0.16, scaleX: ref.scaleX * 0.8, yoyo: true, repeat: -1, duration: 700 + Math.random() * 900, ease: 'Sine.inOut' });
+      }
+    }
+    if (o === 'emblem') img.setDepth(-5000).setAlpha(0.8);
     if (['tree', 'olive', 'palm', 'fig', 'mustard'].includes(o)) {
       // vento nas árvores
       this.tweens.add({ targets: img, angle: { from: -0.8, to: 0.8 }, yoyo: true, repeat: -1, duration: 1800 + Math.random() * 1400, ease: 'Sine.inOut', delay: Math.random() * 1000 });
     }
     return img;
+  }
+
+  /** Visor vermelho brilhante dos guardas armados. */
+  addVisor(a: Actor) {
+    const v = this.add.rectangle(a.x, a.y, 8, 2, 0xff2a3a).setDepth(9020);
+    const g = this.add.image(a.x, a.y, 'light').setBlendMode(Phaser.BlendModes.ADD).setTint(0xff2a3a).setScale(0.22).setAlpha(0.6).setDepth(9021);
+    const upd = () => {
+      if (!a.sprite.active) { v.destroy(); g.destroy(); this.events.off('update', upd); return; }
+      const sc = a.baseScale;
+      const hy = a.y - 38 * sc;
+      const dx = a.facing === 'left' ? -3 : a.facing === 'right' ? 3 : 0;
+      v.setPosition(a.x + dx, hy).setVisible(!a.hidden && a.facing !== 'up');
+      g.setPosition(a.x + dx, hy).setVisible(v.visible);
+    };
+    this.events.on('update', upd);
+    return [v, g];
+  }
+
+  /** Luz colorida (neon, fogo, telas): pinta o ambiente e abre a escuridão. */
+  colorGlow(x: number, y: number, color: number, r: number, blink = false) {
+    const g = this.add.image(x, y, 'light').setBlendMode(Phaser.BlendModes.ADD).setTint(color)
+      .setScale((r * 2.4) / 128).setAlpha(0.55).setDepth(9005);
+    if (blink) {
+      // neon defeituoso: pisca de vez em quando
+      this.time.addEvent({
+        delay: 900 + Math.random() * 2600, loop: true,
+        callback: () => { if (Math.random() < 0.35) this.tweens.add({ targets: g, alpha: 0.08, yoyo: true, duration: 70, repeat: 1 + Math.floor(Math.random() * 3) }); },
+      });
+    } else {
+      this.tweens.add({ targets: g, alpha: 0.3, yoyo: true, repeat: -1, duration: 400 + Math.random() * 500, ease: 'Sine.inOut' });
+    }
+    this.glows.push({ x, y, r: r * 0.7 });
+    return g;
   }
 
   // ---------------- MAPAS ----------------
@@ -341,9 +407,18 @@ export class WorldScene extends Phaser.Scene {
       if (c.target) keep.push(c.target);
       if (c.plots) c.plots.forEach((p: any) => keep.push(p.at));
       if (c.path) c.path.forEach((p: Pt) => keep.push(p));
+      if (c.start) keep.push(c.start);
+      if (c.goal) keep.push(c.goal);
+      if (c.guards) c.guards.forEach((g: any) => g.path.forEach((p: Pt) => keep.push(p)));
     });
+    this.def.story?.props?.forEach((p) => keep.push(p.at));
+    // objetos que o próprio passo usa (mochila, caixa…) não podem ser removidos
+    const useAts = this.def.steps.filter((s) => s.kind === 'use' && s.at).map((s) => s.at!);
     const built = buildMap(map, keep);
-    clearAround(built, keep, 1.5);
+    const near = (o: { x: number; y: number }, pts: Pt[]) => pts.some(([x, y]) => Math.abs(o.x - x) < 1.6 && Math.abs(o.y - y) < 1.6);
+    const protectedObjs = built.objects.filter((o) => near(o, useAts) || near(o, (this.def.story?.props ?? []).map((p) => p.at)));
+    clearAround(built, keep.filter((k) => !useAts.some((u) => u === k) && !(this.def.story?.props ?? []).some((p) => p.at === k)), 1.5);
+    for (const o of protectedObjs) if (!built.objects.includes(o)) built.objects.push(o);
     this.built = built;
     if (!this.textures.exists('tileset')) this.textures.addCanvas('tileset', buildTileset());
     const data: number[][] = [];
@@ -375,8 +450,9 @@ export class WorldScene extends Phaser.Scene {
     this.worldH = built.h * T * MS;
     for (const o of built.objects) {
       const x = (o.x + 0.5) * this.cellW, y = (o.y + 1) * this.cellW;
-      const flat = ['flower', 'stairs', 'reeds'].includes(o.o);
+      const flat = ['flower', 'stairs', 'reeds', 'cables', 'hatch', 'backpack', 'emblem'].includes(o.o);
       const img = this.placeObj(o.o, x, y, { v: o.v, w: o.w, h: o.h, solid: o.solid, flat });
+      this.placed.push({ cx: o.x, cy: o.y, o: o.o, img });
       if (o.o === 'cityview') img.setDepth(-4500);
       if (o.o === 'lamp') this.glows.push({ x, y: y - 20, r: 90 });
       if (o.o === 'stone') img.setData('stone', true).setName('tombstone');
@@ -404,6 +480,8 @@ export class WorldScene extends Phaser.Scene {
         grass: PAL.grass[1], grass2: PAL.grass[2], dgrass: PAL.dgrass[1], darkgrass: PAL.darkgrass[1], sand: PAL.sand[0], dirt: PAL.dirt[0],
         stone: PAL.stone[0], marble: PAL.marble[0], rock: PAL.rock[0], water: PAL.water[0], deep: PAL.deep[0], field: '#8a6a3a', soil: '#7a5a34',
         cliff: PAL.rock[2], wall: PAL.adobe[2], flowers: '#7ab04a', mountain: '#b49a78', floor: '#9a7a5a', snow: '#f0f0f4',
+        pavers: '#2e2440', asphalt: '#24202c', metal: '#3a3444', grate: '#16131c', concrete: '#46424e', rubble: '#2a2630', puddle: '#4a1a5a',
+        cwall: '#0c0a10', plank: '#7a5230', cavefloor: '#3a3028', cavewall: '#0e0b09',
       };
       const sx = W / this.built.w, sy = H / this.built.h;
       for (let y = 0; y < this.built.h; y++)
@@ -439,6 +517,7 @@ export class WorldScene extends Phaser.Scene {
     a.wander = (n.wander ?? 0) * this.cellW;
     this.physics.add.collider(this.player.sprite, a.sprite);
     this.npcs.set(n.id, a);
+    if (n.look === 'agente') this.addVisor(a);
     if (n.id === 'jesus') {
       // luz suave e respeitosa ao redor de Jesus
       const glow = this.add.image(p.x, p.y - 24, 'light').setScale(0.9).setAlpha(0.18).setBlendMode(Phaser.BlendModes.ADD).setTint(0xfff0c0);
@@ -585,6 +664,8 @@ export class WorldScene extends Phaser.Scene {
 
   objectivePos(): { x: number; y: number } | null {
     const s = this.currentStep();
+    if (this.def.n === 1 && this.cavePortal && !hasFlag('letter-read')) return { x: this.cavePortal.x, y: this.cavePortal.y - 20 };
+    if (this.ch?.def.type === 'stealth') return this.w(this.ch.def.goal);
     if (!s) {
       if (this.messageScroll && !this.prog.messageRead) return { x: this.messageScroll.x, y: this.messageScroll.y - 20 };
       return null;
@@ -624,10 +705,109 @@ export class WorldScene extends Phaser.Scene {
     store.toast(this.def.solemn ? `Registrado: ${s.title}` : `Missão concluída: ${s.title}`, this.def.solemn ? '🕊️' : '✅');
     this.pose('write');
     this.refreshVisibility();
+    if (s.gives) giveItem(s.gives);
+    if (s.take) this.takeObject(s);
     if (this.allMainDone()) {
+      if (this.def.story) {
+        await this.finishStory();
+        return;
+      }
       this.spawnMessageScroll();
       store.toast('A Mensagem do Capítulo está disponível', '📜');
+      if (this.def.n === 1 && !hasFlag('rastro')) await this.unlockHiddenTrail();
     }
+  }
+
+  /** Remove do cenário o objeto recolhido num passo 'use' (ex.: a mochila). */
+  takeObject(s: StepDef) {
+    if (!s.at) return;
+    const hit = this.placed.find((p) => p.img.active && Math.abs(p.cx - s.at![0]) < 1.6 && Math.abs(p.cy - s.at![1]) < 1.6);
+    if (hit) this.tweens.add({ targets: hit.img, alpha: 0, y: '-=12', duration: 300, onComplete: () => hit.img.destroy() });
+  }
+
+  // ---------------- HISTÓRIA: O ÚLTIMO CHAMADO ----------------
+  /** Passos 'use' e objetos examináveis do segmento. */
+  setupUseSteps() {
+    for (const st of this.def.steps) {
+      if (st.kind !== 'use' || !st.at) continue;
+      const p = this.w(st.at);
+      this.interactables.push({
+        x: p.x, y: p.y, r: 52, label: st.label ?? st.title,
+        enabled: () => this.currentStep() === st && !this.busy,
+        act: () => this.runStep(st),
+      });
+    }
+    for (const pr of this.def.story?.props ?? []) {
+      const p = this.w(pr.at);
+      this.interactables.push({
+        x: p.x, y: p.y, r: 48, label: pr.label,
+        enabled: () => !pr.from || this.prog.steps.includes(pr.from) || this.currentStep()?.id === pr.from,
+        act: async () => { this.busy = true; try { await store.dialog(pr.lines); } finally { this.busy = false; } },
+      });
+    }
+  }
+
+  /** Fim de um segmento de história: memória → abrigo → distrito → arena → conexão neural… */
+  async finishStory() {
+    const st = this.def.story!;
+    completeChapter(this.def.n);
+    this.busy = true;
+    await this.delay(500);
+    if (st.end.kind === 'next') {
+      this.cameras.main.fadeOut(1400, 0, 0, 0);
+      await this.delay(1500);
+      goChapter(st.end.to);
+    } else if (st.end.kind === 'neural') {
+      store.setUi({ neural: true });
+    } else if (st.end.kind === 'letter') {
+      store.setUi({ letter: 'abigail-1' });
+    }
+  }
+
+  /** Ao fim dos objetivos de Marcos 1 o pingente reage: missão oculta "O Rastro Esquecido". */
+  async unlockHiddenTrail() {
+    this.busy = true;
+    try {
+      await this.delay(900);
+      this.cameras.main.shake(400, 0.004);
+      sfx('error');
+      await store.dialog([{ who: 'marcos', text: 'O pingente… está vibrando. Isso nunca aconteceu antes.' }]);
+      await store.systemAlert([
+        'ASSINATURA DESCONHECIDA DETECTADA.',
+        'IDENTIFICADOR PESSOAL RECONHECIDO.',
+        'MISSÃO OCULTA DESBLOQUEADA.',
+        '◆ O RASTRO ESQUECIDO · Raridade: LENDÁRIA',
+        'Coordenadas recebidas: caverna ao norte do deserto.',
+      ], 'legend');
+      setFlag('rastro');
+      this.spawnCavePortal();
+      store.toast('Missão oculta: O Rastro Esquecido', '◆');
+    } finally {
+      this.busy = false;
+    }
+  }
+
+  cavePortal?: { x: number; y: number };
+  spawnCavePortal() {
+    if (this.cavePortal) return;
+    const p = this.w([41, 4]);
+    this.cavePortal = p;
+    const g = this.add.image(p.x, p.y - 10, 'light').setBlendMode(Phaser.BlendModes.ADD).setTint(0x7af6ff).setScale(1.1).setAlpha(0.5).setDepth(9006);
+    this.tweens.add({ targets: g, scale: 1.5, alpha: 0.2, yoyo: true, repeat: -1, duration: 900 });
+    this.add.particles(p.x, p.y - 20, 'dot', {
+      x: { min: -26, max: 26 }, y: { min: -20, max: 20 }, lifespan: 900, speedY: { min: -30, max: -10 },
+      alpha: { start: 0.9, end: 0 }, scale: { start: 2, end: 0 }, tint: [0x7af6ff, 0xffffff, 0xff6af0], frequency: 90, blendMode: 'ADD',
+    }).setDepth(9007);
+    this.glows.push({ x: p.x, y: p.y, r: 120 });
+    this.interactables.push({ x: p.x, y: p.y, r: 60, label: 'Entrar na caverna', act: () => { sfx('open'); goChapter(CAVE); } });
+  }
+
+  /** Alvo para o pingente "sentir" (caverna em Marcos 1 / caixa dentro da caverna). */
+  pendantTarget(): { x: number; y: number } | null {
+    if (this.def.n === 1 && this.cavePortal && !hasFlag('letter-read')) return this.cavePortal;
+    const t = this.def.story?.pendant;
+    if (t && !this.allMainDone()) return this.w(t);
+    return null;
   }
 
   async runStep(s: StepDef) {
@@ -985,6 +1165,32 @@ export class WorldScene extends Phaser.Scene {
         rt.data.done = new Set<string>();
         break;
       }
+      case 'stealth': {
+        rt.need = 1;
+        rt.data.caught = 0;
+        rt.data.grace = 0;
+        rt.data.cones = this.add.graphics().setDepth(-3500);
+        rt.objs.push(rt.data.cones);
+        rt.data.guards = d.guards.map((gd, i) => {
+          const pts = gd.path.map((pt) => this.w(pt));
+          const speed = (gd.speed ?? (gd.kind === 'drone' ? 1.6 : 1.1)) * this.cellW;
+          let spr: Phaser.GameObjects.Sprite | null = null;
+          let actor: Actor | null = null;
+          let shadowE: Phaser.GameObjects.Ellipse | null = null;
+          if (gd.kind === 'drone') {
+            spr = this.add.sprite(pts[0].x, pts[0].y - 60, 'drone', 0).setScale(MS).setDepth(9300);
+            shadowE = this.add.ellipse(pts[0].x, pts[0].y, 24, 9, 0x000000, 0.35).setDepth(-3400);
+            rt.objs.push(spr, shadowE);
+          } else {
+            actor = new Actor(this, 'guarda' + i, 'Agente do Sistema', LOOKS.agente ?? LOOKS.soldado, pts[0].x, pts[0].y);
+            rt.actors.push(actor);
+            rt.objs.push(...this.addVisor(actor));
+          }
+          return { kind: gd.kind, pts, i: 1, dir: 1, speed, x: pts[0].x, y: pts[0].y, ang: 0, spr, actor, shadowE, t: Math.random() * 6 };
+        });
+        sfx('error');
+        break;
+      }
     }
     this.updateCounter();
   }
@@ -1010,7 +1216,7 @@ export class WorldScene extends Phaser.Scene {
     const d = rt.def;
     const label =
       d.type === 'collect' ? d.label : d.type === 'deliver' ? `Entregar ${d.label}` : d.type === 'crowd' ? 'Atravesse a multidão' :
-      d.type === 'plant' ? 'Sementes na boa terra' : d.type === 'lamps' ? 'Mantenha as lâmpadas acesas' : d.type === 'hotcold' ? 'Escute e encontre quem clama' :
+      d.type === 'plant' ? 'Sementes na boa terra' : d.type === 'lamps' ? 'Mantenha as lâmpadas acesas' : d.type === 'hotcold' ? 'Escute e encontre quem clama' : d.type === 'stealth' ? d.label :
       d.type === 'waypoints' ? d.label : d.type === 'follow' ? 'Acompanhe de perto' : d.type === 'trial' ? 'Perguntas respondidas' : '';
     const have = d.type === 'lamps' ? Math.round(d.duration - (rt.timeLeft ?? 0)) : d.type === 'follow' ? rt.data.i : rt.have;
     store.setUi({ counter: { label, have, need: rt.need, time: rt.timeLeft !== undefined && d.type !== 'lamps' ? Math.ceil(rt.timeLeft) : d.type === 'lamps' ? Math.ceil(rt.timeLeft ?? 0) : undefined } });
@@ -1120,6 +1326,64 @@ export class WorldScene extends Phaser.Scene {
         }
         if (out >= Math.ceil(rt.data.lamps.length / 2)) return void this.failChallenge('Muitas lâmpadas se apagaram. Vigiar é estar atento — tente novamente!');
         if ((rt.timeLeft ?? 0) <= 0) return void this.finishChallenge(true);
+        break;
+      }
+      case 'stealth': {
+        const R = d.range * this.cellW;
+        const g = rt.data.cones as Phaser.GameObjects.Graphics;
+        g.clear();
+        rt.data.grace = Math.max(0, rt.data.grace - dt);
+        let seen = false;
+        for (const gu of rt.data.guards) {
+          const tgt = gu.pts[gu.i];
+          const dx = tgt.x - gu.x, dy = tgt.y - gu.y;
+          const dd = Math.hypot(dx, dy);
+          if (dd < 4) {
+            if (gu.i + gu.dir >= gu.pts.length || gu.i + gu.dir < 0) gu.dir *= -1;
+            gu.i += gu.dir;
+          } else {
+            gu.x += (dx / dd) * gu.speed * dt;
+            gu.y += (dy / dd) * gu.speed * dt;
+            const want = Math.atan2(dy, dx);
+            gu.ang = Phaser.Math.Angle.RotateTo(gu.ang, want, 4 * dt);
+          }
+          gu.t += dt;
+          if (gu.kind === 'drone') {
+            const sweep = gu.ang + Math.sin(gu.t * 1.6) * 0.5;
+            const sx = gu.x + Math.cos(sweep) * R * 0.45, sy = gu.y + Math.sin(sweep) * R * 0.45;
+            gu.spr!.setPosition(gu.x, gu.y - 60).setFrame(Math.floor(gu.t * 10) % 2);
+            gu.shadowE!.setPosition(gu.x, gu.y);
+            g.fillStyle(0xff2a3a, 0.22).fillCircle(sx, sy, R * 0.42);
+            g.lineStyle(2, 0xff2a3a, 0.5).strokeCircle(sx, sy, R * 0.42);
+            if (Phaser.Math.Distance.Between(px, py, sx, sy) < R * 0.42) seen = true;
+          } else {
+            const a = gu.actor!;
+            a.sprite.setPosition(gu.x, gu.y);
+            if (dd < 4) a.walk(0, 0); else a.walk(Math.cos(gu.ang) * 30, Math.sin(gu.ang) * 30);
+            (a.sprite.body as Phaser.Physics.Arcade.Body).setVelocity(0, 0);
+            const half = 0.5;
+            g.fillStyle(0xff2a3a, 0.2).beginPath().moveTo(gu.x, gu.y - 14)
+              .arc(gu.x, gu.y - 14, R, gu.ang - half, gu.ang + half).closePath().fillPath();
+            const pd = Phaser.Math.Distance.Between(px, py, gu.x, gu.y);
+            const pa = Math.atan2(py - gu.y, px - gu.x);
+            if (pd < R && Math.abs(Phaser.Math.Angle.Wrap(pa - gu.ang)) < half) seen = true;
+          }
+        }
+        if (seen && rt.data.grace <= 0) {
+          rt.data.caught++;
+          rt.data.grace = 1.6;
+          const st = this.w(d.start);
+          this.cameras.main.flash(260, 255, 40, 60);
+          this.cameras.main.shake(260, 0.006);
+          sfx('error');
+          store.toast('Uma patrulha viu você! Volte e tente outra rota.', '🚨');
+          this.player.teleport(st.x, st.y);
+        }
+        const goal = this.w(d.goal);
+        if (Phaser.Math.Distance.Between(px, py, goal.x, goal.y) < this.cellW * 1.6) {
+          rt.have = 1;
+          return void this.finishChallenge(true);
+        }
         break;
       }
       case 'hotcold': {
@@ -1264,6 +1528,29 @@ export class WorldScene extends Phaser.Scene {
     }
   }
 
+  pendantNext = 0;
+  /** O pingente de Abigail reage perto de memórias escondidas (barra + faíscas digitais). */
+  tickPendant(time: number) {
+    const t = this.pendantTarget();
+    if (!t || this.ch) {
+      if (store.ui.hotcold !== null && !this.ch) store.setUi({ hotcold: null, hotcoldLabel: undefined });
+      return;
+    }
+    const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, t.x, t.y);
+    const v = Phaser.Math.Clamp(1 - dist / (this.cellW * 34), 0, 1);
+    if (Math.abs((store.ui.hotcold ?? -1) - v) > 0.04) store.setUi({ hotcold: v, hotcoldLabel: '◆ Pingente reagindo…' });
+    if (time > this.pendantNext) {
+      this.pendantNext = time + 1400 - v * 1100;
+      const n = 2 + Math.round(v * 6);
+      for (let i = 0; i < n; i++) {
+        const d = this.add.image(this.player.x + (Math.random() - 0.5) * 14, this.player.y - 26 + (Math.random() - 0.5) * 10, 'dot')
+          .setTint(Math.random() < 0.5 ? 0x7af6ff : 0xff6af0).setBlendMode(Phaser.BlendModes.ADD).setDepth(9200).setScale(1.5);
+        this.tweens.add({ targets: d, x: d.x + (Math.random() - 0.5) * 30, y: d.y - 10 - Math.random() * 20, alpha: 0, duration: 600, onComplete: () => d.destroy() });
+      }
+      if (v > 0.6) sfx('blip');
+    }
+  }
+
   delay(ms: number) {
     return new Promise<void>((r) => this.time.delayedCall(ms, r));
   }
@@ -1404,6 +1691,10 @@ export class WorldScene extends Phaser.Scene {
       dark: [0.62, 0x140806, 0.12, 0x6a2010],
       dawn: [0.12, 0x2a1630, 0.2, 0xffc070],
       storm: [0.5, 0x101820, 0.1, 0x6080a0],
+      neon: [0.4, 0x0a0418, 0.12, 0x5a1470],
+      warm: [0.08, 0x2a1406, 0.2, 0xffb060],
+      shelter: [0.66, 0x0a0608, 0.1, 0x8a4a20],
+      cave: [0.8, 0x020203, 0.06, 0x204050],
     };
     const [la, lc, oa, oc] = conf[a] ?? conf.day;
     this.tweenLight(la, lc);
@@ -1445,6 +1736,15 @@ export class WorldScene extends Phaser.Scene {
   setupAmbient() {
     const amb = this.def.map.ambience;
     const cam = this.cameras.main;
+    if (amb === 'neon') return this.setupNeonWorld();
+    if (amb === 'shelter' || amb === 'cave') {
+      // poeira suspensa na luz fraca
+      this.add.particles(0, 0, 'dot', {
+        x: { min: 0, max: this.worldW }, y: { min: 0, max: this.worldH }, lifespan: 5000, speed: { min: 2, max: 8 },
+        alpha: { start: 0, end: 0.5, ease: 'Sine.inOut' }, scale: 1, tint: amb === 'cave' ? 0x8ad0ff : 0xffc890, frequency: 220,
+      }).setDepth(9010);
+      return;
+    }
     if (amb === 'night' || amb === 'dark') {
       // vaga-lumes
       this.add.particles(0, 0, 'dot', {
@@ -1464,6 +1764,59 @@ export class WorldScene extends Phaser.Scene {
     }
     if (amb === 'storm') this.fx('rain');
     void cam;
+  }
+
+  /** Mundo real: chuva ácida, drones de patrulha cruzando o céu e clarões distantes. */
+  setupNeonWorld() {
+    const outdoors = this.def.story?.rain !== false;
+    // luzes de serviço piscando dentro das instalações
+    if (!outdoors) {
+      this.add.particles(0, 0, 'dot', {
+        x: { min: 0, max: this.worldW }, y: { min: 0, max: this.worldH }, lifespan: 3000, speed: { min: 2, max: 10 },
+        alpha: { start: 0, end: 0.6, ease: 'Sine.inOut' }, tint: [0x2bf2ff, 0xff2bd6], frequency: 260, blendMode: 'ADD',
+      }).setDepth(9010);
+      return;
+    }
+    this.fx('rain');
+    // gotas que respingam no chão
+    this.add.particles(0, 0, 'dot', {
+      x: { min: 0, max: this.worldW }, y: { min: 0, max: this.worldH }, lifespan: 260, scale: { start: 1.4, end: 0 },
+      alpha: { start: 0.6, end: 0 }, tint: 0xb8c8ff, frequency: 12, quantity: 2,
+    }).setDepth(8000);
+    // névoa/fumaça baixa
+    this.add.particles(0, 0, 'light', {
+      x: { min: 0, max: this.worldW }, y: { min: 0, max: this.worldH }, lifespan: 9000, speedX: { min: 4, max: 12 },
+      scale: { start: 0.6, end: 1.4 }, alpha: { start: 0, end: 0.07, ease: 'Sine.inOut' }, tint: 0x6a4a8a, frequency: 420,
+    }).setDepth(8995);
+    // drones de vigilância com holofote
+    const flyover = () => {
+      if (!this.scene.isActive()) return;
+      const y = 80 + Math.random() * (this.worldH - 160);
+      const dir = Math.random() < 0.5 ? 1 : -1;
+      const x0 = dir > 0 ? -60 : this.worldW + 60;
+      const d = this.add.sprite(x0, y, 'drone', 0).setScale(MS).setDepth(9300);
+      d.setFlipX(dir < 0);
+      const spot = this.add.image(x0, y + 60, 'light').setBlendMode(Phaser.BlendModes.ADD).setTint(0xff3a4a).setScale(0.9).setAlpha(0.35).setDepth(9006);
+      const sh = this.add.ellipse(x0, y + 70, 22, 8, 0x000000, 0.35).setDepth(-4000);
+      let f = 0;
+      const ev = this.time.addEvent({ delay: 90, loop: true, callback: () => d.setFrame((f = 1 - f)) });
+      this.tweens.add({
+        targets: [d, spot, sh], x: dir > 0 ? this.worldW + 60 : -60, duration: 14000 + Math.random() * 6000,
+        onUpdate: () => { spot.y = d.y + 60; sh.y = d.y + 70; },
+        onComplete: () => { ev.remove(); d.destroy(); spot.destroy(); sh.destroy(); },
+      });
+      this.tweens.add({ targets: d, y: y + 18, yoyo: true, repeat: -1, duration: 1400, ease: 'Sine.inOut' });
+    };
+    this.time.delayedCall(2500, flyover);
+    this.time.addEvent({ delay: 16000, loop: true, callback: flyover });
+    // clarões de incêndios e relâmpagos distantes
+    this.time.addEvent({
+      delay: 7000, loop: true, callback: () => {
+        if (this.busy || Math.random() < 0.5) return;
+        this.cameras.main.flash(160, 120, 60, 140);
+        if (Math.random() < 0.4) sfx('thunder');
+      },
+    });
   }
 
   // ---------------- ENTRADA ----------------
@@ -1489,9 +1842,10 @@ export class WorldScene extends Phaser.Scene {
     const dt = delta / 1000;
     if (this.anim && this.animTex) {
       this.animAcc += dt;
-      if (this.animAcc >= 1 / 12) {
-        this.animAcc %= 1 / 12;
-        this.anim.step(1 / 12);
+      const afps = TOUCH ? 8 : 12;
+      if (this.animAcc >= 1 / afps) {
+        this.animAcc %= 1 / afps;
+        this.anim.step(1 / afps);
         this.anim.render();
         this.animTex.refresh();
       }
@@ -1551,6 +1905,7 @@ export class WorldScene extends Phaser.Scene {
     this.checkZones();
     this.updateQuest();
     this.tickChallenge(dt);
+    this.tickPendant(time);
 
     // marcador de objetivo
     const obj = this.objectivePos();

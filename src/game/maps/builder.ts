@@ -6,7 +6,7 @@ import { rng } from '../gfx/procgen';
 export interface PlacedObj { o: ObjName; x: number; y: number; w?: number; h?: number; v: number; solid: boolean }
 export interface BuiltMap { w: number; h: number; grid: TileName[][]; objects: PlacedObj[] }
 
-const NON_SOLID: ObjName[] = ['flower', 'reeds', 'stairs', 'basket', 'cityview'];
+const NON_SOLID: ObjName[] = ['flower', 'reeds', 'stairs', 'basket', 'cityview', 'cables', 'hatch', 'banner', 'backpack', 'emblem', 'lantern'];
 
 export function buildMap(def: ProcMapDef, keep: [number, number][] = []): BuiltMap {
   const { w, h } = def;
@@ -90,8 +90,8 @@ export function buildMap(def: ProcMapDef, keep: [number, number][] = []): BuiltM
           if (x < 1 || y < 1 || x >= w - 1 || y >= h - 1) continue;
           const t = grid[y][x];
           if (f.on && !f.on.includes(t)) continue;
-          if (['water', 'deep', 'cliff', 'wall'].includes(t)) continue;
-          const big = ['tree', 'olive', 'palm', 'fig', 'bigrock', 'mustard'].includes(f.o);
+          if (['water', 'deep', 'cliff', 'wall', 'cwall', 'cavewall'].includes(t)) continue;
+          const big = ['tree', 'olive', 'palm', 'fig', 'bigrock', 'mustard', 'container', 'wreck', 'tarp', 'scrap'].includes(f.o);
           const fw = big ? 3 : 1, fh = big ? 2 : 1;
           if (!free(x - 1, y - fh, fw + 1, fh + 1)) continue;
           mark(x - 1, y - fh, fw + 1, fh + 1);

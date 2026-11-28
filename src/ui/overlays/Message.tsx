@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { store, useStore } from '../../core/store';
-import { CHAPTERS } from '../../data/chapters';
+import { CHAPTERS, getChapter } from '../../data/chapters';
 import { breakdown, commit, completeChapter, unlockAchievement } from '../../core/progression';
 import { music, sfx } from '../../audio/audio';
 import { bus } from '../../core/bus';
@@ -12,7 +12,7 @@ const PER_Q = [67, 67, 66];
 export default function Message() {
   const s = useStore();
   const n = s.ui.chapter;
-  const def = CHAPTERS[n - 1];
+  const def = getChapter(n);
   const [stage, setStage] = useState(0); // 0 resumo, 1 versículos, 2 reflexão, 3 perguntas, 4 resultado
   const [q, setQ] = useState(0);
   const [picked, setPicked] = useState<number | null>(null);

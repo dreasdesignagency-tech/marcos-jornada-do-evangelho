@@ -34,6 +34,16 @@ export interface SaveData {
   finished: boolean;
   scoreHistory: { ch: number; score: number; at: number }[];
   usedItems?: string[];
+  /** campanha "O Último Chamado": marcos narrativos, fragmentos e cartas */
+  story?: StoryState;
+}
+
+export interface StoryState {
+  flags: string[];
+  /** fragmentos da missão lendária por capítulo de Marcos */
+  fragments: number[];
+  /** cartas e memórias de Abigail encontradas */
+  letters: string[];
 }
 
 export interface RecordEntry { name: string; score: number; chapters: number; ms: number; at: number }
@@ -50,7 +60,7 @@ export interface DialogState {
 export interface UiState {
   screen: Screen;
   chapter: number;
-  panel: null | 'inventory' | 'map' | 'journal' | 'pause' | 'scrolls';
+  panel: null | 'inventory' | 'map' | 'journal' | 'pause' | 'scrolls' | 'legend';
   dialog: DialogState | null;
   toast: { id: number; text: string; icon?: string }[];
   message: boolean; // overlay da Mensagem do Capítulo
@@ -63,7 +73,14 @@ export interface UiState {
   touch: { x: number; y: number };
   playerPos: { x: number; y: number };
   hotcold: number | null;
+  hotcoldLabel?: string;
   cutscene: boolean;
+  /** sequência da conexão neural (arena → Marcos 1) */
+  neural: boolean;
+  /** carta de Abigail em tela cheia */
+  letter: string | null;
+  /** alerta do sistema (linhas digitadas, estilo terminal) */
+  alert: { lines: string[]; tone: 'info' | 'danger' | 'legend'; resolve: () => void } | null;
 }
 
 const KEY = 'marcos-jornada-save-v1';
@@ -93,6 +110,7 @@ export function newSave(name: string, look: Look): SaveData {
     settings: { music: 0.6, sfx: 0.8, textSpeed: 1 },
     finished: false,
     scoreHistory: [],
+    story: { flags: [], fragments: [], letters: [] },
   };
 }
 
@@ -138,6 +156,7 @@ class Store {
     screen: 'title', chapter: 1, panel: null, dialog: null, toast: [], message: false, minigame: null,
     interactHint: null, location: '', counter: null, cinematic: null, fade: 0,
     touch: { x: 0, y: 0 }, playerPos: { x: 0, y: 0 }, hotcold: null, cutscene: false,
+    neural: false, letter: null, alert: null,
   };
   private listeners = new Set<Listener>();
   private version = 0;
@@ -194,9 +213,13 @@ class Store {
   minigame(def: ChallengeDef, help = false): Promise<boolean> {
     return new Promise((resolve) => this.setUi({ minigame: { def, help, resolve } }));
   }
+  /** Mostra linhas de sistema digitadas (estilo terminal) e resolve ao fechar. */
+  systemAlert(lines: string[], tone: 'info' | 'danger' | 'legend' = 'info'): Promise<void> {
+    return new Promise((resolve) => this.setUi({ alert: { lines, tone, resolve } }));
+  }
   get blocking() {
     const u = this.ui;
-    return !!(u.dialog || u.panel || u.message || u.minigame || u.cinematic);
+    return !!(u.dialog || u.panel || u.message || u.minigame || u.cinematic || u.neural || u.letter || u.alert);
   }
 }
 

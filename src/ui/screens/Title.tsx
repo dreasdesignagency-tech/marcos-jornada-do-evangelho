@@ -4,6 +4,7 @@ import { music, sfx, unlockAudio } from '../../audio/audio';
 import { Motes, Portrait } from '../common';
 import { chaptersDone, totalBest, playerLevel, unlockAchievement } from '../../core/progression';
 import { CHAPTERS } from '../../data/chapters';
+import { nextStoryChapter, hasFlag } from '../../core/story';
 
 export function goChapter(n: number) {
   const s = store.save;
@@ -15,6 +16,10 @@ export function goChapter(n: number) {
 export function continueChapter() {
   const s = store.save;
   if (!s) return 1;
+  // campanha: prólogo primeiro; depois a caverna, se a missão oculta estiver aberta
+  const pro = nextStoryChapter();
+  if (pro) return pro;
+  if (hasFlag('rastro') && !hasFlag('letter-read') && s.chapters[1]) return 1;
   for (let i = 1; i <= s.unlocked; i++) if (!s.chapters[i]?.completed) return i;
   return Math.min(16, s.unlocked);
 }
@@ -48,16 +53,17 @@ export default function Title() {
         style={{ backgroundImage: 'url(assets/maps/galileia.webp)', imageRendering: 'pixelated', animation: 'pan 60s ease-in-out infinite alternate' }}
       />
       <style>{`@keyframes pan { from { transform: scale(1.15) translate(-3%, -2%); } to { transform: scale(1.25) translate(3%, 2%); } }`}</style>
-      <div className="absolute inset-0 bg-gradient-to-b from-[#1a0f08]/80 via-[#1a0f08]/30 to-[#1a0f08]/90" />
+      <div className="absolute inset-0 bg-gradient-to-b from-[#0a0610]/85 via-[#1a0f08]/30 to-[#0a0610]/95" />
+      <div className="pointer-events-none absolute inset-0 opacity-30" style={{ background: 'repeating-linear-gradient(0deg, #2bf2ff14 0 1px, transparent 1px 4px)' }} />
       <Motes n={30} />
-      <div className="relative z-10 flex h-full flex-col items-center justify-center gap-6 overflow-y-auto px-4 py-8">
+      <div className="relative z-10 flex h-full flex-col items-center justify-center gap-6 overflow-y-auto px-4 py-8 short:gap-2 short:py-2">
         <div className="text-center fade-in">
-          <p className="pixel mb-3 text-[9px] tracking-[0.3em] text-[#f2d68a]/80 sm:text-[10px]">✦ UMA AVENTURA PELOS 16 CAPÍTULOS ✦</p>
-          <h1 className="title text-6xl font-black tracking-[0.15em] text-[#f6e3b0] drop-shadow-[0_4px_0_#3a2010] sm:text-8xl">MARCOS</h1>
-          <p className="title mt-2 text-xl text-[#f2d68a] drop-shadow-[0_2px_0_#3a2010] sm:text-3xl">A Jornada do Evangelho</p>
+          <p className="pixel mb-3 text-[9px] tracking-[0.3em] text-[#7af6ff]/80 sm:text-[10px] short:mb-1">✦ TEMPORADA 1 · O EVANGELHO DE MARCOS ✦</p>
+          <h1 className="title text-6xl font-black tracking-[0.15em] text-[#f6e3b0] drop-shadow-[0_4px_0_#3a2010] sm:text-8xl short:text-4xl">MARCOS</h1>
+          <p className="title mt-2 text-xl text-[#f2d68a] drop-shadow-[0_2px_0_#3a2010] sm:text-3xl short:mt-0 short:text-lg">O Último Chamado</p>
         </div>
         {save && (
-          <div className="wood flex items-center gap-3 px-4 py-2 fade-in">
+          <div className="wood flex items-center gap-3 px-4 py-2 fade-in short:py-1">
             <Portrait look={save.player.look} size={44} id="title" />
             <div className="text-left text-sm leading-tight">
               <div className="title font-bold">{save.player.name}</div>
@@ -65,14 +71,14 @@ export default function Title() {
             </div>
           </div>
         )}
-        <div className="flex w-full max-w-xs flex-col gap-2.5 fade-in">
+        <div className="flex w-full max-w-xs flex-col gap-2.5 fade-in short:grid short:max-w-xl short:grid-cols-3 short:gap-1.5">
           {items.map((it) => (
-            <button key={it.label} className={`btn text-base sm:text-lg ${it.gold ? 'btn-gold' : ''}`} disabled={it.disabled} onClick={it.act}>
+            <button key={it.label} className={`btn text-base sm:text-lg short:px-2 short:py-1.5 short:text-sm ${it.gold ? 'btn-gold' : ''}`} disabled={it.disabled} onClick={it.act}>
               {it.label}
             </button>
           ))}
         </div>
-        <p className="max-w-md text-center text-xs text-[#f2e4c0]/70">
+        <p className="max-w-md text-center text-xs text-[#f2e4c0]/70 short:hidden">
           Textos bíblicos: tradução de João Ferreira de Almeida (edição de domínio público), com ortografia atualizada. Música e arte originais.
         </p>
       </div>

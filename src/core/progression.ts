@@ -1,11 +1,12 @@
 // Pontos de Jornada (PJ): calculados a partir do progresso registrado,
 // por isso a mesma atividade nunca pontua duas vezes.
 import type { ChapterDef } from '../data/types';
-import { CHAPTERS } from '../data/chapters';
+import { CHAPTERS, getChapter } from '../data/chapters';
 import { store, type ChapterProgress, pushRecord } from './store';
 import { levelFor, ACHIEVEMENTS } from '../data/levels';
 import { ITEMS } from '../data/items';
 import { sfx } from '../audio/audio';
+import { addFragment } from './story';
 
 export const PJ = { explore: 100, main: 250, side: 150, dialog: 100, scroll: 100, quiz: 200, message: 100 };
 
@@ -44,7 +45,7 @@ export function percent(def: ChapterDef, p: ChapterProgress) {
 }
 
 export function chapterScore(n: number) {
-  const def = CHAPTERS[n - 1];
+  const def = getChapter(n);
   const p = store.progress(n);
   return breakdown(def, p).total;
 }
@@ -60,10 +61,14 @@ export function totalBest() {
   return t;
 }
 
+/** Progresso apenas dos capítulos bíblicos (ignora prólogo e segmentos de história). */
+export function bibleProgress(s = store.save) {
+  if (!s) return [];
+  return Object.entries(s.chapters).filter(([k]) => +k >= 1 && +k <= 16).map(([, v]) => v);
+}
+
 export function chaptersDone() {
-  const s = store.save;
-  if (!s) return 0;
-  return Object.values(s.chapters).filter((c) => c.completed).length;
+  return bibleProgress().filter((c) => c.completed).length;
 }
 
 export function playerLevel() {
@@ -72,7 +77,7 @@ export function playerLevel() {
   // XP: progresso até o próximo título, incluindo a porcentagem do capítulo atual
   const curCh = store.ui.chapter;
   const partial = store.save?.chapters[curCh] && !store.save.chapters[curCh].completed
-    ? percent(CHAPTERS[curCh - 1], store.save.chapters[curCh]) / 100
+    ? percent(getChapter(curCh), store.save.chapters[curCh]) / 100
     : 0;
   const xp = next ? Math.min(1, (done - cur.chapters + partial) / (next.chapters - cur.chapters)) : 1;
   return { ...cur, next, xp };
@@ -82,7 +87,7 @@ export function playerLevel() {
 export function commit(n: number) {
   const s = store.save;
   if (!s) return;
-  const def = CHAPTERS[n - 1];
+  const def = getChapter(n);
   const p = store.progress(n);
   const b = breakdown(def, p);
   const pct = percent(def, p);
@@ -109,18 +114,18 @@ export function checkAchievements() {
   if (!s) return;
   const done = chaptersDone();
   for (const k of [1, 4, 8, 12, 16]) if (s.chapters[k]?.completed) unlockAchievement('ch' + k);
-  const scrolls = Object.values(s.chapters).reduce((a, c) => a + c.scrolls.length, 0);
+  const scrolls = bibleProgress(s).reduce((a, c) => a + c.scrolls.length, 0);
   const allScrolls = CHAPTERS.reduce((a, c) => a + c.scrolls.length, 0);
   if (scrolls >= 10) unlockAchievement('scrolls-10');
   if (scrolls >= allScrolls) unlockAchievement('scrolls-all');
-  const perfect = Object.values(s.chapters).filter((c) => c.quiz.done && c.quiz.firstTry === 3).length;
+  const perfect = bibleProgress(s).filter((c) => c.quiz.done && c.quiz.firstTry === 3).length;
   if (perfect >= 1) unlockAchievement('perfect-quiz');
   if (perfect >= 5) unlockAchievement('perfect-5');
-  if (Object.values(s.chapters).some((c) => c.best >= 1000)) unlockAchievement('full-chapter');
-  const sides = Object.values(s.chapters).reduce((a, c) => a + c.side.length, 0);
+  if (bibleProgress(s).some((c) => c.best >= 1000)) unlockAchievement('full-chapter');
+  const sides = bibleProgress(s).reduce((a, c) => a + c.side.length, 0);
   if (sides >= 5) unlockAchievement('side-5');
   if (s.inventory.filter((i) => ITEMS[i]).length >= 20) unlockAchievement('items-20');
-  const talks = Object.values(s.chapters).reduce((a, c) => a + c.talked.length, 0);
+  const talks = bibleProgress(s).reduce((a, c) => a + c.talked.length, 0);
   if (talks >= 50) unlockAchievement('talk-50');
   if (done >= 16) unlockAchievement('complete');
 }
@@ -179,7 +184,10 @@ export function completeChapter(n: number) {
   if (!s) return;
   const p = store.progress(n);
   p.completed = true;
+  if (n > 16) { store.persist(); return; }
   if (s.unlocked < n + 1) s.unlocked = Math.min(16, n + 1);
+  // cada capítulo concluído guarda um fragmento da missão lendária (o de Marcos 1 vem da caverna)
+  if (n >= 2) addFragment(n);
   s.scoreHistory.push({ ch: n, score: chapterScore(n), at: Date.now() });
   commit(n);
   saveRecord();

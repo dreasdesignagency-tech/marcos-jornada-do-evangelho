@@ -3,6 +3,7 @@
 // Estes assets são provisórios e podem ser substituídos por imagens definitivas
 // (mesmos nomes de textura) sem alterar o restante do código.
 import type { ObjName, TileName } from '../../data/types';
+import { drawRealObject, paintRealTile, REAL_TILES } from './procgenReal';
 
 export const T = 16;
 
@@ -31,7 +32,7 @@ export function rng(seed: number) {
   return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296);
 }
 
-function cv(w: number, h: number) {
+export function cv(w: number, h: number) {
   const c = document.createElement('canvas');
   c.width = w;
   c.height = h;
@@ -40,12 +41,12 @@ function cv(w: number, h: number) {
   return { c, g };
 }
 
-const px = (g: CanvasRenderingContext2D, x: number, y: number, col: string, w = 1, h = 1) => {
+export const px = (g: CanvasRenderingContext2D, x: number, y: number, col: string, w = 1, h = 1) => {
   g.fillStyle = col;
   g.fillRect(Math.round(x), Math.round(y), w, h);
 };
 
-function noiseTile(g: CanvasRenderingContext2D, ox: number, oy: number, cols: string[], r: () => number, dens = 0.35) {
+export function noiseTile(g: CanvasRenderingContext2D, ox: number, oy: number, cols: string[], r: () => number, dens = 0.35) {
   px(g, ox, oy, cols[0], T, T);
   for (let i = 0; i < T * T * dens; i++) {
     const x = Math.floor(r() * T), y = Math.floor(r() * T);
@@ -57,10 +58,11 @@ function noiseTile(g: CanvasRenderingContext2D, ox: number, oy: number, cols: st
 export const TILE_ORDER: TileName[] = [
   'grass', 'grass2', 'dgrass', 'sand', 'dirt', 'stone', 'marble', 'rock', 'field', 'soil',
   'cliff', 'wall', 'flowers', 'mountain', 'floor', 'darkgrass', 'water', 'deep', 'snow',
+  ...REAL_TILES,
 ];
 export const VARIANTS = 4;
 export const WATER_FRAMES = 3;
-export const SOLID_TILES = new Set<TileName>(['water', 'deep', 'cliff', 'wall']);
+export const SOLID_TILES = new Set<TileName>(['water', 'deep', 'cliff', 'wall', 'cwall', 'cavewall']);
 
 export function tileIndex(name: TileName, variant: number) {
   return TILE_ORDER.indexOf(name) * VARIANTS + (variant % VARIANTS);
@@ -164,6 +166,8 @@ export function buildTileset(): HTMLCanvasElement {
         case 'deep':
           noiseTile(g, ox, oy, name === 'water' ? PAL.water : PAL.deep, r, 0.3);
           break;
+        default:
+          paintRealTile(g, name, ox, oy, v, r);
       }
     }
   });
@@ -201,7 +205,7 @@ export interface ObjArt {
   body?: { w: number; h: number; oy?: number };
 }
 
-function blob(g: CanvasRenderingContext2D, cx: number, cy: number, rx: number, ry: number, cols: string[], r: () => number, outline = true) {
+export function blob(g: CanvasRenderingContext2D, cx: number, cy: number, rx: number, ry: number, cols: string[], r: () => number, outline = true) {
   for (let y = -ry - 1; y <= ry + 1; y++) {
     for (let x = -rx - 1; x <= rx + 1; x++) {
       const d = (x * x) / (rx * rx) + (y * y) / (ry * ry);
@@ -216,14 +220,14 @@ function blob(g: CanvasRenderingContext2D, cx: number, cy: number, rx: number, r
   }
 }
 
-function shadow(g: CanvasRenderingContext2D, cx: number, cy: number, rx: number, ry: number) {
+export function shadow(g: CanvasRenderingContext2D, cx: number, cy: number, rx: number, ry: number) {
   g.fillStyle = 'rgba(30,20,10,0.28)';
   g.beginPath();
   g.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
   g.fill();
 }
 
-function rect(g: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, fill: string, line = PAL.outline) {
+export function rect(g: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, fill: string, line = PAL.outline) {
   px(g, x, y, line, w, h);
   px(g, x + 1, y + 1, fill, w - 2, h - 2);
 }
@@ -602,8 +606,7 @@ export function drawObject(o: ObjName, v = 0, w = 0, h = 0): ObjArt {
       return { canvas: c, body: { w: 32, h: 5 } };
     }
   }
-  const { c } = cv(8, 8);
-  return { canvas: c };
+  return drawRealObject(o, v, w, h);
 }
 
 /** Itens coletáveis (ícones no mundo). */

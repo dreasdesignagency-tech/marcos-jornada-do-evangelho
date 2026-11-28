@@ -67,6 +67,10 @@ const MOODS: Record<MusicMood, MoodDef> = {
   night: { root: 55, scale: [0, 2, 3, 5, 7, 8, 10], bpm: 58, density: 0.35, flute: true, drone: true, bright: 0.7 },
   lament: { root: 52, scale: [0, 2, 3, 5, 7, 8, 10], bpm: 50, density: 0.3, flute: true, drone: true, bright: 0.6 },
   dawn: { root: 65, scale: [0, 2, 4, 7, 9], bpm: 78, density: 0.6, flute: true, drone: true, bright: 1.15 },
+  // O Último Chamado
+  memory: { root: 64, scale: [0, 2, 4, 7, 9, 11], bpm: 76, density: 0.55, flute: true, drone: true, bright: 1.2 },
+  dystopia: { root: 45, scale: [0, 1, 3, 5, 7, 8, 10], bpm: 50, density: 0.22, flute: false, drone: true, bright: 0.45 },
+  arena: { root: 50, scale: [0, 1, 4, 5, 7, 8, 11], bpm: 62, density: 0.32, flute: false, drone: true, bright: 0.65 },
 };
 
 function pluck(t: number, freq: number, gain: number, bright: number) {
@@ -203,7 +207,7 @@ export function music(mood: MusicMood | null) {
   };
 }
 
-export type Sfx = 'blip' | 'item' | 'quest' | 'step' | 'scroll' | 'achievement' | 'error' | 'select' | 'open' | 'thunder' | 'chime' | 'pray' | 'splash';
+export type Sfx = 'blip' | 'item' | 'quest' | 'step' | 'scroll' | 'achievement' | 'error' | 'select' | 'open' | 'thunder' | 'chime' | 'pray' | 'splash' | 'glitch' | 'boot';
 
 export function sfx(name: Sfx) {
   const c = ensure();
@@ -237,6 +241,8 @@ export function sfx(name: Sfx) {
   };
   switch (name) {
     case 'blip': tone(660 + Math.random() * 60, 0.03, 'square', 0.025); break;
+    case 'glitch': for (let i = 0; i < 5; i++) tone(200 + Math.random() * 1800, 0.03, 'square', 0.03, i * 0.035); break;
+    case 'boot': [220, 330, 440, 660].forEach((f, i) => tone(f, 0.12, 'sawtooth', 0.03, i * 0.09)); break;
     case 'select': tone(880, 0.06, 'square', 0.05); break;
     case 'open': tone(440, 0.08, 'triangle', 0.08); tone(660, 0.1, 'triangle', 0.06, 0.06); break;
     case 'item': [523, 659, 784].forEach((f, i) => tone(f, 0.18, 'triangle', 0.09, i * 0.07)); break;
@@ -251,3 +257,42 @@ export function sfx(name: Sfx) {
     case 'pray': [392, 494, 587].forEach((f) => tone(f, 1.6, 'sine', 0.035)); break;
   }
 }
+
+
+// ---------- chuva contínua (mundo real) ----------
+let rainStop: (() => void) | null = null;
+/** Liga/desliga o som de chuva ácida (ruído filtrado em loop). fadeMs controla a transição. */
+export function rainAmbience(on: boolean, fadeMs = 1500) {
+  const c = ensure();
+  if (!c) return;
+  if (!on) {
+    rainStop?.();
+    rainStop = null;
+    return;
+  }
+  if (rainStop) return;
+  const len = c.sampleRate * 2;
+  const buf = c.createBuffer(1, len, c.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+  const src = c.createBufferSource();
+  src.buffer = buf;
+  src.loop = true;
+  const bp = c.createBiquadFilter();
+  bp.type = 'bandpass';
+  bp.frequency.value = 1400;
+  bp.Q.value = 0.6;
+  const g = c.createGain();
+  g.gain.value = 0;
+  g.gain.linearRampToValueAtTime(0.09, c.currentTime + fadeMs / 1000);
+  src.connect(bp).connect(g).connect(musicBus);
+  src.start();
+  rainStop = () => {
+    const t = c.currentTime;
+    g.gain.cancelScheduledValues(t);
+    g.gain.setValueAtTime(g.gain.value, t);
+    g.gain.linearRampToValueAtTime(0, t + fadeMs / 1000);
+    src.stop(t + fadeMs / 1000 + 0.1);
+  };
+}
+

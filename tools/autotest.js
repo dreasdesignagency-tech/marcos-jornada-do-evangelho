@@ -56,3 +56,58 @@ window.__finishChapter = function (n) {
   __store.save.unlocked = Math.max(__store.save.unlocked, Math.min(16, n + 1));
   __store.persist();
 };
+
+// Piloto automático da campanha (prólogo → Marcos 1 → caverna → carta).
+// Uso no console: await __runStory()  — avança diálogos/alertas sozinho.
+window.__autoUi = function (on = true) {
+  clearInterval(window.__autoUiT);
+  if (!on) return;
+  window.__autoUiT = setInterval(() => {
+    const u = __store.ui;
+    if (u.dialog) { const d = u.dialog; const l = d.lines[d.index]; if (l.choices) { const ok = l.choices.find((c) => c.ok); } __store.setUi({ dialog: null }); d.resolve(true); }
+    else if (u.alert) { const a = u.alert; __store.setUi({ alert: null }); a.resolve(); }
+    else if (u.cinematic) window.__closeCine?.();
+  }, 80);
+};
+window.__runSegment = async function () {
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const sc = window.__game.scene.getScene('world');
+  const def = sc.def;
+  const log = [def.n + ' ' + def.title];
+  const waitIdle = async (t = 20000) => { const t0 = Date.now(); while ((sc.busy || (__store.blocking && !__store.ui.neural && !__store.ui.letter)) && Date.now() - t0 < t) await sleep(60); };
+  await sleep(600);
+  await waitIdle();
+  for (let guard = 0; guard < 30; guard++) {
+    const s = sc.currentStep();
+    if (!s) break;
+    await waitIdle();
+    try {
+      if (s.kind === 'use') {
+        const p = sc.w(s.at); sc.player.teleport(p.x, p.y + 20); await sleep(250);
+        const it = sc.interactables.find((i) => i.enabled && i.enabled() && Math.hypot(i.x - p.x, i.y - p.y) < 2);
+        if (!it) { log.push('sem interação para ' + s.id); break; }
+        await it.act();
+      } else if (s.npc && (s.kind === 'talk' || s.kind === 'challenge')) {
+        const a = sc.npcs.get(s.npc);
+        if (a.hidden) { log.push(`npc ${s.npc} oculto em ${s.id}`); a.setVisible(true); }
+        sc.player.teleport(a.x + 30, a.y + 10); await sleep(100);
+        await sc.talkTo(def.npcs.find((n) => n.id === s.npc), a);
+      } else if (s.at) {
+        const p = sc.w(s.at); sc.player.teleport(p.x, p.y); await sleep(500);
+      }
+      await sleep(400);
+      if (sc.ch && sc.ch.step === s) {
+        const t = sc.ch.def.type;
+        if (t === 'collect') { for (const it of sc.ch.data.items) { sc.player.teleport(it.x, it.y + 10); await sleep(150); if (!sc.ch) break; } }
+        else if (t === 'stealth') { const g = sc.w(sc.ch.def.goal); await sleep(1500); sc.player.teleport(g.x, g.y); }
+        else if (t === 'follow') { const t0 = Date.now(); while (sc.ch && Date.now() - t0 < 30000) { const a = sc.npcs.get(sc.ch.def.npc); sc.player.teleport(a.x + 20, a.y + 20); await sleep(200); } }
+        else await sc.finishChallenge(true);
+      }
+      const t0 = Date.now();
+      while (!__store.progress(def.n).steps.includes(s.id) && Date.now() - t0 < 25000) await sleep(100);
+      if (!__store.progress(def.n).steps.includes(s.id)) { log.push('TRAVOU em ' + s.id); break; }
+      log.push('ok ' + s.id);
+    } catch (e) { log.push('ERRO ' + s.id + ': ' + e.message); break; }
+  }
+  return log;
+};

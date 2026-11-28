@@ -79,13 +79,22 @@ export type ChallengeDef =
   | { type: 'sort'; prompt: string; categories: [string, string]; items: { text: string; cat: 0 | 1; why: string }[] }
   | { type: 'balance'; duration: number; prompt: string }
   | { type: 'vigil'; duration: number; prompt: string; lines: string[] }
-  | { type: 'trial'; npcs: string[] };
+  | { type: 'trial'; npcs: string[] }
+  /** atravessar uma área vigiada sem entrar no campo de visão das patrulhas */
+  | { type: 'stealth'; start: Pt; goal: Pt; guards: { path: Pt[]; kind: 'drone' | 'soldier'; speed?: number }[]; range: number; label: string };
 
 export interface StepDef {
   id: string;
   title: string;
   hint: string;
-  kind: 'talk' | 'reach' | 'scene' | 'challenge';
+  /** 'use' = interagir (tecla E / botão) com um objeto do cenário em `at` */
+  kind: 'talk' | 'reach' | 'scene' | 'challenge' | 'use';
+  /** rótulo do botão de interação para passos 'use' */
+  label?: string;
+  /** item recebido ao concluir o passo */
+  gives?: string;
+  /** remove do cenário o objeto em `at` ao concluir (ex.: pegar a mochila) */
+  take?: boolean;
   npc?: string; // para 'talk'
   at?: Pt; // para 'reach' (e posição do marcador)
   r?: number; // raio em células
@@ -147,17 +156,24 @@ export interface ProcMapDef {
   seed: number;
 }
 
-export type Ambience = 'day' | 'dusk' | 'night' | 'dark' | 'dawn' | 'storm';
+export type Ambience = 'day' | 'dusk' | 'night' | 'dark' | 'dawn' | 'storm' | 'neon' | 'warm' | 'shelter' | 'cave';
 
 export type TileName =
   | 'grass' | 'grass2' | 'dgrass' | 'sand' | 'dirt' | 'stone' | 'marble' | 'rock' | 'water' | 'deep'
-  | 'field' | 'soil' | 'cliff' | 'wall' | 'flowers' | 'mountain' | 'snow' | 'floor' | 'darkgrass';
+  | 'field' | 'soil' | 'cliff' | 'wall' | 'flowers' | 'mountain' | 'snow' | 'floor' | 'darkgrass'
+  // mundo real (Grande Tribulação)
+  | 'asphalt' | 'metal' | 'grate' | 'concrete' | 'rubble' | 'puddle' | 'cwall' | 'plank' | 'cavefloor' | 'cavewall' | 'pavers';
 
 export type ObjName =
   | 'tree' | 'olive' | 'palm' | 'bush' | 'rock' | 'bigrock' | 'flower' | 'reeds' | 'deadtree' | 'fig'
   | 'house' | 'temple' | 'well' | 'stall' | 'tent' | 'fire' | 'tomb' | 'lamp' | 'table' | 'boat'
   | 'pillar' | 'gate' | 'crate' | 'jar' | 'cross' | 'fence' | 'cairn' | 'sign' | 'basket' | 'tower'
-  | 'cityview' | 'stairs' | 'bench' | 'altar' | 'mustard' | 'donkey' | 'sheep' | 'net' | 'stone';
+  | 'cityview' | 'stairs' | 'bench' | 'altar' | 'mustard' | 'donkey' | 'sheep' | 'net' | 'stone'
+  // mundo real
+  | 'pipe' | 'neon' | 'barrelfire' | 'screen' | 'container' | 'wreck' | 'barrier' | 'watchtower' | 'tarp' | 'server'
+  | 'capsule' | 'generator' | 'cables' | 'bed' | 'shelf' | 'locker' | 'photo' | 'backpack' | 'console' | 'banner'
+  | 'vent' | 'cot' | 'swing' | 'torch' | 'chest' | 'hatch' | 'antenna' | 'scrap'
+  | 'arenagate' | 'billboard' | 'emblem' | 'neoncross' | 'kiosk' | 'neonfence' | 'wsign' | 'stairsup' | 'lantern';
 
 export type Feature =
   | { f: 'rect'; tile: TileName; x: number; y: number; w: number; h: number }
@@ -167,8 +183,36 @@ export type Feature =
   | { f: 'scatter'; o: ObjName; x: number; y: number; w: number; h: number; n: number; on?: TileName[] }
   | { f: 'village'; x: number; y: number; w: number; h: number; n: number };
 
+/** Objeto do cenário que pode ser examinado (fotos, telões, avisos…). */
+export interface PropDef {
+  at: Pt;
+  label: string;
+  lines: Line[];
+  /** só aparece a partir deste passo */
+  from?: string;
+}
+
+/** Segmentos de história fora dos capítulos bíblicos (prólogo, mundo real, caverna). */
+export interface StoryDef {
+  /** universo: mundo real (interface tecnológica) ou simulação (madeira e pergaminho) */
+  world: 'real' | 'memory' | 'sim';
+  /** rótulo curto mostrado no HUD (ex.: "Prólogo · 2") */
+  label: string;
+  /** o jogador aparece como criança */
+  child?: boolean;
+  /** ao concluir todos os passos */
+  end: { kind: 'next'; to: number; title?: string; sub?: string } | { kind: 'neural' } | { kind: 'letter' };
+  props?: PropDef[];
+  /** o pingente de Abigail reage conforme o jogador se aproxima deste ponto */
+  pendant?: Pt;
+  /** música de fundo (sobrescreve a do capítulo) */
+  rain?: boolean;
+}
+
 export interface ChapterDef {
+  /** 1–16 = capítulos de Marcos; 101+ = segmentos de história */
   n: number;
+  story?: StoryDef;
   title: string;
   ref: string;
   setting: string;
@@ -193,4 +237,4 @@ export interface ChapterDef {
   quiz: QuizQ[];
 }
 
-export type MusicMood = 'pastoral' | 'village' | 'sea' | 'mystery' | 'joy' | 'temple' | 'night' | 'lament' | 'dawn';
+export type MusicMood = 'pastoral' | 'village' | 'sea' | 'mystery' | 'joy' | 'temple' | 'night' | 'lament' | 'dawn' | 'memory' | 'dystopia' | 'arena';

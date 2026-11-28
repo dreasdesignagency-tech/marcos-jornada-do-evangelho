@@ -2,15 +2,13 @@ import { useRef, useState } from 'react';
 import { store, useStore } from '../../core/store';
 import { bus } from '../../core/bus';
 import { sfx } from '../../audio/audio';
-
-const isTouch = () => typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0 || window.innerWidth < 640);
+import { hasFlag } from '../../core/story';
 
 export default function Touch() {
   const s = useStore();
   const base = useRef<HTMLDivElement>(null);
   const [knob, setKnob] = useState({ x: 0, y: 0 });
   const active = useRef<number | null>(null);
-  if (!isTouch()) return null;
   const R = 48;
   const move = (cx: number, cy: number) => {
     const r = base.current!.getBoundingClientRect();
@@ -38,7 +36,7 @@ export default function Touch() {
     <>
       <div
         ref={base}
-        className="absolute bottom-6 left-6 z-30 h-32 w-32 touch-none rounded-full border-4 border-[#2a1a10]/70 bg-[#f2e4c0]/25 backdrop-blur-[1px]"
+        className="absolute bottom-[calc(1.5rem+env(safe-area-inset-bottom))] left-5 z-30 h-32 w-32 touch-none rounded-full border-4 border-[#2a1a10]/70 bg-[#f2e4c0]/20 backdrop-blur-[1px]"
         onPointerDown={(e) => { active.current = e.pointerId; (e.target as HTMLElement).setPointerCapture(e.pointerId); move(e.clientX, e.clientY); }}
         onPointerMove={(e) => active.current === e.pointerId && move(e.clientX, e.clientY)}
         onPointerUp={end}
@@ -49,20 +47,17 @@ export default function Touch() {
           style={{ transform: `translate(calc(-50% + ${knob.x}px), calc(-50% + ${knob.y}px))` }}
         />
       </div>
-      <div className="absolute bottom-6 right-4 z-30 flex flex-col items-end gap-2">
-        {s.ui.interactHint && <div className="wood max-w-[11rem] px-2 py-1 text-right text-xs">{s.ui.interactHint}</div>}
-        <div className="flex items-end gap-2">
-          <div className="flex flex-col gap-2">
-            {btn('🎒', () => open('inventory'), 'h-11 w-11')}
-            {btn('📖', () => open('journal'), 'h-11 w-11')}
-          </div>
-          <div className="flex flex-col gap-2">
-            {btn('📜', () => open('scrolls'), 'h-11 w-11')}
-            {btn('🙏', () => bus.emit('pray'), 'h-11 w-11')}
-          </div>
-          {btn('E', () => bus.emit('interact'), `btn-gold h-20 w-20 text-2xl title ${s.ui.interactHint ? 'animate-pulse' : ''}`)}
+      <div className="absolute bottom-[calc(1.25rem+env(safe-area-inset-bottom))] right-3 z-30 flex flex-col items-end gap-2">
+        {s.ui.interactHint && <div className="wood max-w-[12rem] px-2 py-1 text-right text-xs font-bold">{s.ui.interactHint}</div>}
+        <div className="grid grid-cols-3 gap-1.5">
+          {btn('🎒', () => open('inventory'), 'h-10 w-10 text-base')}
+          {btn('📖', () => open('journal'), 'h-10 w-10 text-base')}
+          {btn('📜', () => open('scrolls'), 'h-10 w-10 text-base')}
+          {btn('🙏', () => bus.emit('pray'), 'h-10 w-10 text-base')}
+          {hasFlag('legend') ? btn('◆', () => open('legend'), 'h-10 w-10 text-base') : btn('🗺', () => open('map'), 'h-10 w-10 text-base')}
+          {btn('⏸', () => open('pause'), 'h-10 w-10 text-sm')}
         </div>
-        {btn('⏸', () => open('pause'), 'h-9 w-9 text-sm')}
+        {btn('E', () => bus.emit('interact'), `btn-gold h-[4.5rem] w-[4.5rem] text-2xl title ${s.ui.interactHint ? 'animate-pulse' : 'opacity-80'}`)}
       </div>
     </>
   );

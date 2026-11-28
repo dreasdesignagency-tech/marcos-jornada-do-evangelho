@@ -10,7 +10,8 @@ export default function Dialogue() {
   const [shown, setShown] = useState(0);
   const [reply, setReply] = useState<{ text: string; ok: boolean } | null>(null);
   const timer = useRef<number>(0);
-  const full = reply ? reply.text : line?.text ?? '';
+  const name = store.save?.player.name ?? 'Elias';
+  const full = (reply ? reply.text : line?.text ?? '').replace(/\{nome\}/g, name);
 
   useEffect(() => {
     setShown(0);
@@ -66,20 +67,26 @@ export default function Dialogue() {
   const who = speaker(line.who, s.ui.chapter);
   const isQuote = !!line.ref && !reply;
   const isNarr = !line.who || line.who === 'narrador';
+  const isSys = line.who === 'sistema' || line.who === 'eden';
   return (
     <div className="absolute inset-x-0 bottom-0 z-40 flex justify-center p-2 sm:p-4" onClick={advance}>
       <div className="parch relative flex w-full max-w-3xl gap-3 p-3 sm:p-4 fade-in">
         {who.look ? (
           <Portrait look={who.look} size={72} id={line.who ?? 'n'} className="hidden shrink-0 sm:block" />
         ) : (
-          <div className="hidden h-[72px] w-[72px] shrink-0 items-center justify-center rounded-sm border-2 border-[#2a1a10] bg-[#7a5230] text-3xl sm:flex">📜</div>
+          <div className={`hidden h-[72px] w-[72px] shrink-0 items-center justify-center rounded-sm border-2 border-[#2a1a10] text-3xl sm:flex ${isSys ? (line.who === 'eden' ? 'bg-[#2a0a12]' : 'bg-[#0e2a34]') : 'bg-[#7a5230]'}`}>
+            {line.who === 'eden' ? '👁' : isSys ? '◈' : '📜'}
+          </div>
         )}
         <div className="min-w-0 flex-1">
           <div className="mb-1 flex items-center gap-2">
             <span className="title rounded bg-[#5a3a1e] px-2 py-0.5 text-sm font-bold text-[#fbe9c4]">{who.name}</span>
             {isQuote && <span className="ref">✦ {line.ref}</span>}
           </div>
-          <p className={`min-h-[3.2rem] text-[17px] leading-snug sm:text-lg ${isQuote ? 'font-semibold' : ''} ${isNarr && !isQuote ? 'italic' : ''}`}>
+          <p
+            className={`min-h-[3.2rem] leading-snug ${isSys ? 'sys-line keep-color' : 'text-[17px] sm:text-lg'} ${isQuote ? 'font-semibold' : ''} ${isNarr && !isQuote ? 'italic' : ''}`}
+            style={isSys ? { color: line.who === 'eden' ? '#e0304a' : '#1ba6b8' } : undefined}
+          >
             {isQuote ? '“' : ''}{full.slice(0, shown)}{isQuote && shown >= full.length ? '”' : ''}
           </p>
           {line.choices && !reply && shown >= full.length && (
@@ -97,7 +104,7 @@ export default function Dialogue() {
           )}
           {reply && <p className={`mt-1 text-xs font-bold ${reply.ok ? 'text-[#2f6e22]' : 'text-[#8a2a1a]'}`}>{reply.ok ? '✔ Correto' : '✘ Tente novamente'}</p>}
           {(!line.choices || reply) && shown >= full.length && (
-            <span className="pixel absolute bottom-2 right-3 animate-bounce text-[9px]">▼ espaço</span>
+            <span className="pixel absolute bottom-2 right-3 animate-bounce text-[9px]">▼ toque</span>
           )}
         </div>
       </div>

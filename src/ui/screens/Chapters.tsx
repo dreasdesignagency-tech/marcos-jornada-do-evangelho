@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { CHAPTERS } from '../../data/chapters';
+import { CHAPTERS, getChapter } from '../../data/chapters';
 import type { ChapterDef } from '../../data/types';
 import { store, useStore } from '../../core/store';
 import { breakdown, percent, resetChapterRun } from '../../core/progression';
@@ -98,11 +98,11 @@ export default function Chapters() {
         </div>
       </div>
       {sel !== null && (() => {
-        const d = CHAPTERS[sel - 1];
+        const d = getChapter(sel);
         const p = save.chapters[sel];
         const started = p && (p.steps.length || p.zones.length);
         return (
-          <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/60 p-4" onClick={() => setSel(null)}>
+          <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/60 p-4" onClick={() => setSel(null)}>
             <div className="parch w-full max-w-md p-5 fade-in" onClick={(e) => e.stopPropagation()}>
               <p className="ref">{d.ref} · {d.setting}</p>
               <h2 className="title mb-2 text-2xl font-bold">{d.title}</h2>
