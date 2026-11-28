@@ -203,8 +203,7 @@ export class WorldScene extends Phaser.Scene {
   fitZoom() {
     const h = this.scale.height;
     const wdt = this.scale.width;
-    // retrato: o zoom acompanha a largura do telefone (personagem ~1/7 da largura)
-    const z = Phaser.Math.Clamp(Math.min(h / 560, wdt / 320), 1.1, 3);
+    const z = Phaser.Math.Clamp(Math.min(h / 380, wdt / 520), 1.1, 3);
     this.cameras.main.setZoom(z);
   }
 

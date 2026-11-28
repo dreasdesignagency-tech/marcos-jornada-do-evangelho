@@ -3,7 +3,7 @@
 ## Feito (primeira entrega)
 - [x] Prólogo jogável: memória → abrigo → Setor Refúgio → Arena → conexão neural → Marcos 1.
 - [x] Missão oculta, caverna, carta de Abigail, missão lendária e fragmentos persistentes.
-- [x] Jogo inteiro em retrato (mobile), HUD e controles de toque.
+- [x] Jogo em paisagem (mobile), HUD e controles de toque; colisões completas em árvores e casas.
 - [x] Setor Refúgio no estilo da referência; desafio de furtividade.
 - [x] Salvamento contínuo e botão Continuar seguindo a campanha.
 

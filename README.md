@@ -2,7 +2,7 @@
 
 **Jogar agora:** https://dreasdesignagency-tech.github.io/marcos-jornada-do-evangelho/
 
-RPG 2D narrativo **para celular em pé (retrato)**. Prólogo na Grande Tribulação + simulação REFÚGIO dos 16 capítulos de Marcos. Documentação de design em [`docs/`](docs/).
+RPG 2D narrativo **para celular deitado (paisagem)**. Prólogo na Grande Tribulação + simulação REFÚGIO dos 16 capítulos de Marcos. Documentação de design em [`docs/`](docs/).
 
 RPG 2D em pixel art (Phaser 3 + TypeScript + React + Vite + Tailwind) pelos 16 capítulos do Evangelho de Marcos.
 
@@ -15,7 +15,7 @@ npm run build    # versão de produção em dist/
 ```
 
 ## Controles
-Toque: joystick e botões na tela (feito para jogar com o telefone em pé).
+Toque: joystick e botões na tela (feito para jogar com o telefone deitado).
 Teclado: W A S D / setas: andar · E: interagir · Espaço: avançar diálogo · I: inventário · M: mapa · J: missões · P: pergaminhos/diário · L: missão lendária · R: orar · ESC: pausa.
 No celular: joystick virtual e botões na tela.
 

@@ -48,9 +48,9 @@ export default function App() {
       {scr === 'ending' && <Ending />}
       {scr === 'game' && <GameScreen key={s.ui.chapter} />}
       <div className="rotate-msg absolute inset-0 z-[200] flex-col items-center justify-center gap-3 bg-[#0a0610] p-6 text-center text-[#f6e3b0]">
-        <div className="text-5xl" style={{ animation: 'floaty 2s ease-in-out infinite' }}>📱</div>
-        <p className="title text-lg font-bold">Gire o telefone para a vertical</p>
-        <p className="text-sm opacity-80">MARCOS — O Último Chamado foi feito para jogar com o celular em pé.</p>
+        <div className="text-5xl" style={{ animation: 'floaty 2s ease-in-out infinite', transform: 'rotate(90deg)' }}>📱</div>
+        <p className="title text-lg font-bold">Gire o telefone para deitar a tela</p>
+        <p className="text-sm opacity-80">MARCOS — O Último Chamado foi feito para jogar com o celular deitado (paisagem).</p>
       </div>
     </div>
   );

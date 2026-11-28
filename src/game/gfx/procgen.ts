@@ -252,7 +252,7 @@ export function drawObject(o: ObjName, v = 0, w = 0, h = 0): ObjArt {
       blob(g, W / 2, cy - 6, 15, 12, leaf, r);
       blob(g, W / 2, cy + 6, 13, 8, leaf, r);
       if (o === 'mustard') for (let k = 0; k < 14; k++) px(g, 6 + r() * (W - 12), 6 + r() * 30, '#f2e060');
-      return { canvas: c, body: { w: 10, h: 8 } };
+      return { canvas: c, body: { w: 34, h: 30 } };
     }
     case 'olive': {
       const W = 44, H = 46;
@@ -264,7 +264,7 @@ export function drawObject(o: ObjName, v = 0, w = 0, h = 0): ObjArt {
       blob(g, W / 2 - 8, H - 26, 10, 8, PAL.olive, r);
       blob(g, W / 2 + 8, H - 26, 10, 8, PAL.olive, r);
       blob(g, W / 2, H - 32, 13, 9, PAL.olive, r);
-      return { canvas: c, body: { w: 8, h: 6 } };
+      return { canvas: c, body: { w: 30, h: 24 } };
     }
     case 'palm': {
       const W = 48, H = 70;
@@ -286,14 +286,14 @@ export function drawObject(o: ObjName, v = 0, w = 0, h = 0): ObjArt {
         }
       }
       px(g, cx - 2, cy - 1, '#6a4024', 4, 3);
-      return { canvas: c, body: { w: 8, h: 6 } };
+      return { canvas: c, body: { w: 22, h: 36 } };
     }
     case 'bush': {
       const { c, g } = cv(22, 18);
       shadow(g, 11, 15, 9, 3);
       blob(g, 11, 9, 9, 6, v % 2 ? PAL.leaf : PAL.olive, r);
       if (v % 3 === 0) for (let k = 0; k < 4; k++) px(g, 5 + r() * 12, 5 + r() * 8, '#e86a5a');
-      return { canvas: c, body: { w: 14, h: 6 } };
+      return { canvas: c, body: { w: 18, h: 11 } };
     }
     case 'rock':
     case 'bigrock':
@@ -334,7 +334,7 @@ export function drawObject(o: ObjName, v = 0, w = 0, h = 0): ObjArt {
         for (let i = 0; i < n; i++) px(g, x + dx * i, y - i, '#6a4a30', 2, 2);
       };
       br(15, 16, 1, 10); br(14, 18, -1, 11); br(15, 24, 1, 7); br(14, 12, -0.5, 10);
-      return { canvas: c, body: { w: 6, h: 4 } };
+      return { canvas: c, body: { w: 14, h: 18 } };
     }
     case 'house': {
       const W = (w || 6) * T, H = (h || 5) * T;

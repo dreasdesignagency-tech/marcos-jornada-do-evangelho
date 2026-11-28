@@ -1,10 +1,10 @@
 # GAME_DESIGN — MARCOS: O Último Chamado
 
-RPG 2D narrativo em pixel art, câmera top-down ortográfica, **100% mobile em retrato** (telefone em pé).
+RPG 2D narrativo em pixel art, câmera top-down ortográfica, **mobile em paisagem** (telefone deitado).
 
 ## Plataforma e controles
-- Moldura em retrato: no celular ocupa a tela toda; no computador vira uma coluna 1:2. Celular deitado mostra "Gire o telefone".
-- Breakpoints largos do Tailwind desativados (`styles.css`): toda a interface usa o layout de celular.
+- Paisagem em tela cheia. Celular em pé mostra "Gire o telefone para deitar a tela".
+- No toque, a barra inferior do teclado some e entram joystick e botões; a missão começa recolhida.
 - Toque: joystick (esquerda), botão **E** (direita), atalhos 🎒 📖 📜 🙏 ◆/🗺 ⏸. Teclado continua: WASD/setas, E, Espaço, I, J, P, M, L (missão lendária), R, ESC.
 
 ## Estrutura de conteúdo
