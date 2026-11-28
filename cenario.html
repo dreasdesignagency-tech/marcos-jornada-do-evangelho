@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Galileia Animada</title>
+<meta name="theme-color" content="#1a120c">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Press+Start+2P&display=swap">
+<style>
+  :root {
+    --bg: #1a120c; --panel: #2a1d12; --edge: #7a5230; --gold: #e8c26a; --text: #f6e7c8; --muted: #c9b48c;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font-family: Georgia, serif; }
+  body { display: flex; flex-direction: column; }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 16px; }
+  h1 { margin: 0; font: 700 18px Cinzel, serif; color: var(--gold); letter-spacing: .04em; }
+  header a { color: var(--muted); font-size: 13px; }
+  #stage { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 0 16px; }
+  canvas { display: block; max-width: 100%; max-height: 100%; aspect-ratio: 3 / 2; image-rendering: pixelated; image-rendering: crisp-edges; border: 3px solid var(--edge); border-radius: 4px; background: #000; }
+  #controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 10px 18px; padding: 10px 16px 14px; font-size: 13px; }
+  button, select { font: 10px "Press Start 2P", monospace; color: var(--text); background: var(--panel); border: 2px solid var(--edge); border-radius: 4px; padding: 8px 10px; cursor: pointer; }
+  button:hover, select:hover { border-color: var(--gold); }
+  button.on { background: #5a3a1a; border-color: var(--gold); }
+  label { display: flex; align-items: center; gap: 8px; color: var(--muted); }
+  label b { color: var(--text); font: 9px "Press Start 2P", monospace; min-width: 7.5em; }
+  input[type=range] { width: 120px; accent-color: var(--gold); }
+  .keys { width: 100%; text-align: center; color: #8d7a5a; font-size: 12px; }
+  @media (max-width: 600px) { h1 { font-size: 15px; } input[type=range] { width: 96px; } .keys { display: none; } }
+</style>
+  <script type="module" crossorigin src="./assets/cenario-lvuO_cz8.js"></script>
+  <link rel="modulepreload" crossorigin href="./assets/galileiaAnim-8m1WUW4C.js">
+</head>
+<body>
+<header>
+  <h1>Galileia — cenário animado</h1>
+  <a href="./">← Voltar ao jogo</a>
+</header>
+<div id="stage"><canvas id="cv" width="1536" height="1024" aria-label="Vila costeira da Galileia em pixel art animada"></canvas></div>
+<div id="controls">
+  <button id="play" class="on" title="Espaço">❚❚ Pausar</button>
+  <label>Vento <input id="wind" type="range" min="0" max="2" step="0.05" value="1"><b id="windv">Brisa</b></label>
+  <label>Hora <input id="tod" type="range" min="0" max="1" step="0.01" value="0"><b id="todv">Dia</b></label>
+  <button id="cycle" title="C">☀ Ciclo automático</button>
+  <label>FPS <select id="fps"><option>12</option><option selected>16</option><option>24</option></select></label>
+  <button id="full" title="Tela cheia">⛶</button>
+  <div class="keys">Espaço: play/pausa · ← →: vento · 1 2 3: dia / entardecer / noite · C: ciclo · F: FPS</div>
+</div>
+</body>
+</html>
