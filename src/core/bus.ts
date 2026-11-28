@@ -25,4 +25,10 @@ export const worldInfo = {
   zones: [] as { x: number; y: number; name: string; found: boolean }[],
 };
 
+/** Estamina do jogador (0..1), lida pela barra na tela. */
+export const staminaInfo = { value: 1, exhausted: false, running: false };
+
+/** Botões de toque extras (correr segurando, pular, agachar). */
+export const touchInput = { run: false, jump: false, crouch: false };
+
 (window as any).__bus = bus;

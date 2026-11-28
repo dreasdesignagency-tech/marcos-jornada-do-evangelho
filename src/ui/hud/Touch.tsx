@@ -1,6 +1,6 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { store, useStore } from '../../core/store';
-import { bus } from '../../core/bus';
+import { bus, touchInput } from '../../core/bus';
 import { sfx } from '../../audio/audio';
 import { hasFlag } from '../../core/story';
 
@@ -11,6 +11,8 @@ export default function Touch() {
   const base = useRef<HTMLDivElement>(null);
   const [knob, setKnob] = useState({ x: 0, y: 0 });
   const active = useRef<number | null>(null);
+  const [crouch, setCrouch] = useState(touchInput.crouch);
+  useEffect(() => () => { touchInput.run = false; }, []);
   if (!isTouch()) return null;
   const R = 48;
   const move = (cx: number, cy: number) => {
@@ -60,6 +62,20 @@ export default function Touch() {
           <div className="flex flex-col gap-2">
             {btn('📜', () => open('scrolls'), 'h-11 w-11')}
             {btn('🙏', () => bus.emit('pray'), 'h-11 w-11')}
+          </div>
+          <div className="flex flex-col gap-2">
+            {/* correr: segure o botão enquanto usa o joystick */}
+            <button
+              className="btn flex h-11 w-11 touch-none items-center justify-center rounded-full p-0 text-lg"
+              aria-label="Correr (segure)"
+              onPointerDown={(e) => { e.preventDefault(); (e.target as HTMLElement).setPointerCapture(e.pointerId); touchInput.run = true; }}
+              onPointerUp={() => { touchInput.run = false; }}
+              onPointerCancel={() => { touchInput.run = false; }}
+            >
+              🏃
+            </button>
+            {btn('⤒', () => { touchInput.jump = true; }, 'h-11 w-11 font-bold')}
+            {btn('⬇', () => { touchInput.crouch = !touchInput.crouch; setCrouch(touchInput.crouch); }, `h-11 w-11 font-bold ${crouch ? 'btn-gold' : ''}`)}
           </div>
           {btn('E', () => bus.emit('interact'), `btn-gold h-20 w-20 text-2xl title ${s.ui.interactHint ? 'animate-pulse' : ''}`)}
         </div>

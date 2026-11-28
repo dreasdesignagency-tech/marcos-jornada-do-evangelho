@@ -5,14 +5,21 @@ import { CHAPTERS, getChapter } from '../../data/chapters';
 import { resolveLook, LOOKS } from '../../data/looks';
 import { ITEMS } from '../../data/items';
 import { store } from '../../core/store';
-import { bus, worldInfo } from '../../core/bus';
+import { bus, worldInfo, staminaInfo, touchInput } from '../../core/bus';
 import { commit, giveItem, hasItem, unlockAchievement, completeChapter } from '../../core/progression';
 import { hasFlag, setFlag, addFragment, CAVE } from '../../core/story';
 import { goChapter } from '../../ui/screens/Title';
 import { OBJ_GLOW, NEON_COLORS, drawDrone } from '../gfx/procgenReal';
 import { music, sfx } from '../../audio/audio';
-import { Actor } from '../systems/Actor';
+import { Actor, WALK_SPEED, RUN_SPEED, CROUCH_SPEED } from '../systems/Actor';
 import { GALILEIA_MASK, GALILEIA_MASK_CELL } from '../maps/galileiaMask';
+
+// Estamina: ~15 s de corrida com a barra cheia
+const STAMINA_DRAIN = 1 / 15; // por segundo correndo
+const STAMINA_REGEN = 1 / 6; // por segundo descansando (cheia em ~6 s)
+const STAMINA_DELAY = 0.7; // s sem correr antes de começar a recarregar
+const STAMINA_RECOVER = 0.3; // ao esgotar, só volta a correr com 30%
+const JUMP_COST = 0.06;
 import { GalileiaAnim, FIRE as ANIM_FIRE } from '../gfx/galileiaAnim';
 
 let galAnim: GalileiaAnim | null = null;
@@ -84,6 +91,13 @@ export class WorldScene extends Phaser.Scene {
   unsub: (() => void)[] = [];
   extras: Actor[] = [];
   built?: BuiltMap;
+  stamina = 1;
+  exhausted = false;
+  restT = 0;
+  staminaTimer = 0;
+  lastBlocked = 0;
+  groundCtx?: CanvasRenderingContext2D;
+  groundCache = new Map<string, number>();
 
   constructor() {
     super('world');
@@ -107,6 +121,8 @@ export class WorldScene extends Phaser.Scene {
     this.extras = [];
     this.messageScroll = undefined;
     this.carrying = undefined;
+    this.groundCache = new Map();
+    this.groundCtx = undefined;
   }
 
   get prog() {
@@ -139,8 +155,12 @@ export class WorldScene extends Phaser.Scene {
     (this.player.sprite.body as Phaser.Physics.Arcade.Body).setCollideWorldBounds(true);
     this.physics.add.collider(this.player.sprite, this.walls);
     if (this.layer) this.physics.add.collider(this.player.sprite, this.layer);
-    // respiração em repouso
-    this.tweens.add({ targets: this.player.sprite, scaleY: 1.02, yoyo: true, repeat: -1, duration: 900, ease: 'Sine.inOut' });
+    // (a respiração em repouso agora é feita pelo próprio Actor, para todos os personagens)
+    this.player.groundColorAt = (x, y) => this.groundColor(x, y);
+    this.stamina = 1;
+    this.exhausted = false;
+    Object.assign(staminaInfo, { value: 1, exhausted: false, running: false });
+    bus.emit('stamina');
 
     this.spawnNpcs();
     this.restoreSceneState();
@@ -1826,7 +1846,116 @@ export class WorldScene extends Phaser.Scene {
     this.keys = kb.addKeys('W,A,S,D,E,R') as any;
     kb.on('keydown-E', () => this.tryInteract());
     kb.on('keydown-R', () => this.pray());
+    // Ctrl: correr · Shift: agachar · Espaço: pular (sem capturar o Espaço, que também avança diálogos)
+    this.keys.CTRL = kb.addKey('CTRL', true);
+    this.keys.SHIFT = kb.addKey('SHIFT', false);
+    this.keys.SPACE = kb.addKey('SPACE', false);
     kb.removeCapture('SPACE');
+    // Ctrl + W/A/S/D/setas não pode acionar atalhos do navegador (salvar, favoritar…)
+    const guard = (e: KeyboardEvent) => {
+      if (!e.ctrlKey || store.blocking) return;
+      if (['w', 'a', 's', 'd', 'e', 'r', ' '].includes(e.key.toLowerCase()) || e.key.startsWith('Arrow')) e.preventDefault();
+    };
+    window.addEventListener('keydown', guard, true);
+    // ao trocar de janela com Ctrl/Shift apertado, solta as teclas
+    const reset = () => kb.resetKeys();
+    window.addEventListener('blur', reset);
+    this.unsub.push(() => { window.removeEventListener('keydown', guard, true); window.removeEventListener('blur', reset); });
+  }
+
+  /** Cor média do chão sob os pés (para a poeira ter a cor do solo). */
+  groundColor(x: number, y: number): number {
+    // cache por bloco de 8px: ler pixels do canvas é caro, e o chão não muda
+    const ck = `${Math.floor(x / 8)},${Math.floor(y / 8)}`;
+    const hit = this.groundCache.get(ck);
+    if (hit !== undefined) return hit;
+    const c = this.sampleGround(x, y);
+    if (this.groundCache.size > 4000) this.groundCache.clear();
+    this.groundCache.set(ck, c);
+    return c;
+  }
+
+  private sampleGround(x: number, y: number): number {
+    const fallback = 0xb8a27a;
+    try {
+      let canvas: HTMLCanvasElement | undefined;
+      let px = 0, py = 0;
+      if (this.layer) {
+        const tile = this.layer.getTileAtWorldXY(x, y, true);
+        if (!tile || tile.index < 0) return fallback;
+        canvas = this.textures.get('tileset').getSourceImage() as HTMLCanvasElement;
+        const cols = Math.floor(canvas.width / T);
+        // posição do pé dentro do tile
+        const fx = Phaser.Math.Clamp(Math.floor((x / MS) % T), 2, T - 3);
+        const fy = Phaser.Math.Clamp(Math.floor((y / MS) % T), 2, T - 3);
+        px = (tile.index % cols) * T + fx;
+        py = Math.floor(tile.index / cols) * T + fy;
+      } else if (this.anim) {
+        canvas = this.anim.canvas as HTMLCanvasElement;
+        px = Math.floor(x / MS);
+        py = Math.floor(y / MS) + 1;
+      }
+      if (!canvas) return fallback;
+      if (!this.groundCtx || this.groundCtx.canvas !== canvas) {
+        this.groundCtx = canvas.getContext('2d', { willReadFrequently: true }) ?? undefined;
+      }
+      const g = this.groundCtx;
+      if (!g) return fallback;
+      const d = g.getImageData(Math.max(0, px - 2), Math.max(0, py - 2), 5, 5).data;
+      let r = 0, gg = 0, b = 0, n = 0;
+      for (let i = 0; i < d.length; i += 4) {
+        if (d[i + 3] < 128) continue;
+        r += d[i]; gg += d[i + 1]; b += d[i + 2]; n++;
+      }
+      if (!n) return fallback;
+      return (Math.round(r / n) << 16) | (Math.round(gg / n) << 8) | Math.round(b / n);
+    } catch {
+      return fallback;
+    }
+  }
+
+  /** Corrida, pulo e estamina do jogador. Devolve a velocidade a usar. */
+  updateRunJump(dt: number, time: number, block: boolean, moving: boolean): number {
+    if (block) this.lastBlocked = time;
+    const k = this.keys;
+    const crouch = !block && (k.SHIFT.isDown || touchInput.crouch);
+    this.player.crouching = crouch;
+    const wantRun = !block && !crouch && moving && (k.CTRL.isDown || touchInput.run);
+    if (this.exhausted && this.stamina >= STAMINA_RECOVER) this.exhausted = false;
+    const running = wantRun && !this.exhausted && this.stamina > 0;
+    if (running) {
+      this.stamina = Math.max(0, this.stamina - STAMINA_DRAIN * dt);
+      this.restT = 0;
+      if (this.stamina <= 0) this.exhausted = true;
+    } else {
+      this.restT += dt;
+      if (this.restT >= STAMINA_DELAY) this.stamina = Math.min(1, this.stamina + STAMINA_REGEN * dt);
+    }
+    this.player.running = running;
+
+    // pulo: ignora o Espaço que acabou de fechar um diálogo
+    const jumpPressed = Phaser.Input.Keyboard.JustDown(k.SPACE) || touchInput.jump;
+    touchInput.jump = false;
+    if (jumpPressed && !block && time - this.lastBlocked > 300 && !this.player.target && this.stamina >= JUMP_COST) {
+      if (this.player.jump()) {
+        this.stamina -= JUMP_COST;
+        this.restT = 0;
+        sfx('step');
+      }
+    }
+
+    // barra na tela (~15 atualizações por segundo)
+    this.staminaTimer += dt;
+    if (this.staminaTimer > 0.066) {
+      this.staminaTimer = 0;
+      const v = Math.round(this.stamina * 200) / 200;
+      if (v !== staminaInfo.value || this.exhausted !== staminaInfo.exhausted || running !== staminaInfo.running) {
+        Object.assign(staminaInfo, { value: v, exhausted: this.exhausted, running });
+        bus.emit('stamina');
+      }
+    }
+    if (running) return RUN_SPEED;
+    return this.player.crouched ? CROUCH_SPEED : WALK_SPEED;
   }
 
   tryInteract() {
@@ -1866,7 +1995,9 @@ export class WorldScene extends Phaser.Scene {
       const len = Math.hypot(vx, vy);
       if (len > 1) { vx /= len; vy /= len; }
     }
-    if (!this.player.target) this.player.walk(vx * 105, vy * 105);
+    // 8 direções (cima, baixo, lados e diagonais); Ctrl corre, Shift agacha, Espaço pula
+    const speed = this.updateRunJump(dt, time, block, vx !== 0 || vy !== 0);
+    if (!this.player.target) this.player.walk(vx * speed, vy * speed);
     this.player.update(time);
     for (const a of this.npcs.values()) a.update(time);
     for (const a of this.extras) a.update(time);

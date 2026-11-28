@@ -7,6 +7,7 @@ import { ITEMS } from '../../data/items';
 import { breakdown, percent, playerLevel, totalBest } from '../../core/progression';
 import { sfx } from '../../audio/audio';
 import { Bar, Portrait } from '../common';
+import { toggleFullscreen } from '../fullscreen';
 
 export function useWorldTick() {
   const [, set] = useState(0);
@@ -153,6 +154,7 @@ export default function Hud() {
           <button className="btn px-2 py-1 text-xs" onClick={() => open('scrolls')}>📜 P</button>
           {legendStatus().known && <button className="btn px-2 py-1 text-xs" onClick={() => open('legend')}>◆ L</button>}
           <button className="btn px-2 py-1 text-xs" onClick={() => open('pause')}>⏸ Esc</button>
+          <button className="btn px-2 py-1 text-xs" title="Tela cheia (F)" onClick={(e) => { (e.currentTarget as HTMLButtonElement).blur(); toggleFullscreen(); }}>⛶ F</button>
         </div>
       </div>}
     </>
