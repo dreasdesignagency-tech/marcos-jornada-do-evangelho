@@ -1846,21 +1846,16 @@ export class WorldScene extends Phaser.Scene {
     this.keys = kb.addKeys('W,A,S,D,E,R') as any;
     kb.on('keydown-E', () => this.tryInteract());
     kb.on('keydown-R', () => this.pray());
-    // Ctrl: correr · Shift: agachar · Espaço: pular (sem capturar o Espaço, que também avança diálogos)
-    this.keys.CTRL = kb.addKey('CTRL', true);
+    // Shift: correr · C: agachar · Espaço: pular (sem capturar o Espaço, que também avança diálogos)
+    // Não usar Ctrl: Ctrl+W (correr para cima) fecha a aba do navegador e nenhum site consegue impedir.
     this.keys.SHIFT = kb.addKey('SHIFT', false);
+    this.keys.C = kb.addKey('C', false);
     this.keys.SPACE = kb.addKey('SPACE', false);
     kb.removeCapture('SPACE');
-    // Ctrl + W/A/S/D/setas não pode acionar atalhos do navegador (salvar, favoritar…)
-    const guard = (e: KeyboardEvent) => {
-      if (!e.ctrlKey || store.blocking) return;
-      if (['w', 'a', 's', 'd', 'e', 'r', ' '].includes(e.key.toLowerCase()) || e.key.startsWith('Arrow')) e.preventDefault();
-    };
-    window.addEventListener('keydown', guard, true);
-    // ao trocar de janela com Ctrl/Shift apertado, solta as teclas
+    // ao trocar de janela com uma tecla apertada, solta as teclas
     const reset = () => kb.resetKeys();
     window.addEventListener('blur', reset);
-    this.unsub.push(() => { window.removeEventListener('keydown', guard, true); window.removeEventListener('blur', reset); });
+    this.unsub.push(() => window.removeEventListener('blur', reset));
   }
 
   /** Cor média do chão sob os pés (para a poeira ter a cor do solo). */
@@ -1918,9 +1913,9 @@ export class WorldScene extends Phaser.Scene {
   updateRunJump(dt: number, time: number, block: boolean, moving: boolean): number {
     if (block) this.lastBlocked = time;
     const k = this.keys;
-    const crouch = !block && (k.SHIFT.isDown || touchInput.crouch);
+    const crouch = !block && (k.C.isDown || touchInput.crouch);
     this.player.crouching = crouch;
-    const wantRun = !block && !crouch && moving && (k.CTRL.isDown || touchInput.run);
+    const wantRun = !block && !crouch && moving && (k.SHIFT.isDown || touchInput.run);
     if (this.exhausted && this.stamina >= STAMINA_RECOVER) this.exhausted = false;
     const running = wantRun && !this.exhausted && this.stamina > 0;
     if (running) {
@@ -1995,7 +1990,7 @@ export class WorldScene extends Phaser.Scene {
       const len = Math.hypot(vx, vy);
       if (len > 1) { vx /= len; vy /= len; }
     }
-    // 8 direções (cima, baixo, lados e diagonais); Ctrl corre, Shift agacha, Espaço pula
+    // 8 direções (cima, baixo, lados e diagonais); Shift corre, C agacha, Espaço pula
     const speed = this.updateRunJump(dt, time, block, vx !== 0 || vy !== 0);
     if (!this.player.target) this.player.walk(vx * speed, vy * speed);
     this.player.update(time);

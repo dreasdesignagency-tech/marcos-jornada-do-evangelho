@@ -7,10 +7,6 @@ export const isTouchDevice = () =>
 export async function enterLandscapeFullscreen() {
   try {
     if (!document.fullscreenElement) await document.documentElement.requestFullscreen({ navigationUI: 'hide' } as FullscreenOptions);
-    // em tela cheia, o Chrome deixa o jogo "segurar" as teclas: assim Ctrl+W (correr
-    // para cima) não fecha a aba
-    const kb = (navigator as Navigator & { keyboard?: { lock?: (k?: string[]) => Promise<void> } }).keyboard;
-    kb?.lock?.(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyE', 'KeyR', 'Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight']).catch(() => {});
     const o = screen.orientation as ScreenOrientation & { lock?: (o: string) => Promise<void> };
     await o.lock?.('landscape');
   } catch { /* navegador não permite (ex.: iPhone): segue normal */ }

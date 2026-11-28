@@ -18,7 +18,7 @@ export default function Stamina() {
       aria-label={`Estamina ${pct}%`}
     >
       <div className="wood flex items-center gap-2 px-2 py-1">
-        <span className={`text-sm leading-none ${exhausted ? 'animate-pulse' : ''}`} title="Estamina (Ctrl para correr)">🏃</span>
+        <span className={`text-sm leading-none ${exhausted ? 'animate-pulse' : ''}`} title="Estamina (Shift para correr)">🏃</span>
         <div className="relative h-2.5 flex-1 overflow-hidden rounded-sm border border-[#2a1a10] bg-[#2a1a10]/60">
           <div className="h-full transition-[width] duration-75 ease-linear" style={{ width: `${pct}%`, background: color }} />
         </div>

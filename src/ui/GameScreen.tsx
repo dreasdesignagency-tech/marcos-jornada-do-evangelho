@@ -58,9 +58,9 @@ export default function GameScreen() {
     window.addEventListener('pointerdown', once);
     return () => window.removeEventListener('pointerdown', once);
   }, []);
-  // Ctrl corre: se Ctrl+W escapar (fora da tela cheia), o navegador pergunta antes de fechar
+  // salva ao fechar/recarregar a página
   useEffect(() => {
-    const h = (e: BeforeUnloadEvent) => { store.persist(); e.preventDefault(); e.returnValue = ''; };
+    const h = () => store.persist();
     window.addEventListener('beforeunload', h);
     return () => window.removeEventListener('beforeunload', h);
   }, []);
