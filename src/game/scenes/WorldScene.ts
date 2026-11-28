@@ -12,7 +12,7 @@ import { goChapter } from '../../ui/screens/Title';
 import { OBJ_GLOW, NEON_COLORS, drawDrone } from '../gfx/procgenReal';
 import { music, sfx } from '../../audio/audio';
 import { Actor } from '../systems/Actor';
-import { GALILEIA_GRID } from '../maps/galileia';
+import { GALILEIA_MASK, GALILEIA_MASK_CELL } from '../maps/galileiaMask';
 import { GalileiaAnim, FIRE as ANIM_FIRE } from '../gfx/galileiaAnim';
 
 let galAnim: GalileiaAnim | null = null;
@@ -375,14 +375,15 @@ export class WorldScene extends Phaser.Scene {
     const bg = this.add.image(0, 0, akey).setOrigin(0).setScale(MS).setDepth(-10000);
     this.worldW = bg.width * MS;
     this.worldH = bg.height * MS;
-    // colisões: une sequências horizontais de células bloqueadas
-    GALILEIA_GRID.forEach((row, y) => {
+    // colisões finas (16 px): une sequências horizontais de células bloqueadas
+    const mc = GALILEIA_MASK_CELL * MS;
+    GALILEIA_MASK.forEach((row, y) => {
       let x = 0;
       while (x < row.length) {
         if (row[x] === '#' || row[x] === '~') {
           let e = x;
           while (e < row.length && (row[e] === '#' || row[e] === '~')) e++;
-          const z = this.add.zone((x + (e - x) / 2) * this.cellW, (y + 0.5) * this.cellW, (e - x) * this.cellW, this.cellW);
+          const z = this.add.zone((x + (e - x) / 2) * mc, (y + 0.5) * mc, (e - x) * mc, mc);
           this.walls.add(z);
           x = e;
         } else x++;

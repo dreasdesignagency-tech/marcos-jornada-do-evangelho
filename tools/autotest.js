@@ -111,3 +111,70 @@ window.__runSegment = async function () {
   }
   return log;
 };
+
+// Confere, com as colisões reais do Phaser, se todos os pontos do capítulo são alcançáveis.
+window.__checkReach = function () {
+  const sc = window.__game.scene.getScene('world');
+  const def = sc.def;
+  const G = 4, PW = 14, PH = 8; // grade de 4 px; corpo do jogador 14x8
+  const W = Math.ceil(sc.worldW / G), H = Math.ceil(sc.worldH / G);
+  // raster dos bloqueios (zonas de colisão + tiles sólidos)
+  const blk = new Uint8Array(W * H);
+  for (const z of sc.walls.getChildren()) {
+    const x0 = Math.floor((z.x - z.width / 2) / G), x1 = Math.ceil((z.x + z.width / 2) / G), y0 = Math.floor((z.y - z.height / 2) / G), y1 = Math.ceil((z.y + z.height / 2) / G);
+    for (let y = Math.max(0, y0); y < Math.min(H, y1); y++) for (let x = Math.max(0, x0); x < Math.min(W, x1); x++) blk[y * W + x] = 1;
+  }
+  if (sc.layer) for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const t = sc.layer.getTileAtWorldXY(x * G + 2, y * G + 2); if (t && t.collides) blk[y * W + x] = 1; }
+  const bw = Math.ceil(PW / G / 2), bh = Math.ceil(PH / G);
+  const ok = new Uint8Array(W * H);
+  for (let y = bh; y < H; y++) for (let x = bw; x < W - bw; x++) {
+    let f = 1;
+    for (let yy = y - bh + 1; yy <= y && f; yy++) for (let xx = x - bw; xx < x + bw; xx++) if (blk[yy * W + xx]) { f = 0; break; }
+    ok[y * W + x] = f;
+  }
+  const sp = sc.w(def.spawn);
+  let sx = Math.floor(sp.x / G), sy = Math.floor(sp.y / G);
+  const seen = new Uint8Array(W * H);
+  const q = [[sx, sy]];
+  if (!ok[sy * W + sx]) { // spawn: procura a célula livre mais próxima
+    outer: for (let r = 1; r < 16; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) if (ok[(sy + dy) * W + sx + dx]) { q[0] = [sx + dx, sy + dy]; break outer; }
+  }
+  while (q.length) {
+    const [x, y] = q.pop();
+    if (x < 0 || y < 0 || x >= W || y >= H) continue;
+    const i = y * W + x;
+    if (seen[i] || !ok[i]) continue;
+    seen[i] = 1;
+    q.push([x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]);
+  }
+  const pts = [];
+  const add = (n, p, rad = 46) => p && pts.push([n, p, rad]);
+  def.npcs.forEach((n) => add('npc ' + n.id, n.at));
+  def.scrolls.forEach((s) => add('pergaminho ' + s.id, s.at));
+  def.side.forEach((s) => add('achado ' + s.id, s.findAt));
+  if (def.messageAt) add('mensagem', def.messageAt, 48);
+  (def.story?.props ?? []).forEach((p) => add('objeto ' + p.label, p.at, 48));
+  def.steps.forEach((s) => {
+    if (s.at) add('passo ' + s.id, s.at, s.kind === 'use' ? 52 : (s.r ?? 1.4) * sc.cellW);
+    const c = s.challenge;
+    if (!c) return;
+    (c.at ?? []).forEach((p, i) => Array.isArray(p) && add(`${s.id} item${i}`, p, 30));
+    (c.targets ?? []).forEach((p, i) => add(`${s.id} alvo${i}`, p, 40));
+    (c.plots ?? []).forEach((p, i) => add(`${s.id} canteiro${i}`, p.at, 40));
+    if (c.source) add(`${s.id} origem`, c.source, 40);
+    if (c.goal) add(`${s.id} chegada`, c.goal, 1.6 * sc.cellW);
+  });
+  const bad = [];
+  for (const [n, p, rad] of pts) {
+    const wp = sc.w(p);
+    let hit = false;
+    const R = Math.ceil(rad / G);
+    for (let dy = -R; dy <= R && !hit; dy++) for (let dx = -R; dx <= R && !hit; dx++) {
+      const x = Math.floor(wp.x / G) + dx, y = Math.floor(wp.y / G) + dy;
+      if (x < 0 || y < 0 || x >= W || y >= H || !seen[y * W + x]) continue;
+      if (Math.hypot(x * G + G / 2 - wp.x, y * G + G / 2 - wp.y) <= rad) hit = true;
+    }
+    if (!hit) bad.push(`${n}@${p.join(',')}`);
+  }
+  return { ch: def.n, pontos: pts.length, problemas: bad };
+};

@@ -83,7 +83,7 @@ const ch: ChapterDef = {
     {
       id: 'cordas', title: 'Desafio: encontrar cordas', kind: 'challenge', helpItem: 'corda',
       hint: 'Procure cordas pelos telhados e pela parte alta da vila.',
-      challenge: { type: 'collect', label: 'Cordas encontradas', icon: 'corda', at: [[29, 16], [33, 17], [40, 17], [42, 18], [37, 20]] },
+      challenge: { type: 'collect', label: 'Cordas encontradas', icon: 'corda', at: [[35, 18], [33, 17], [40, 17], [42, 18], [37, 20]] },
     },
     {
       id: 'cura', title: 'Acompanhar a cura do paralítico', kind: 'scene', at: [31, 17], r: 2.5,
